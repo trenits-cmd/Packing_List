@@ -53,6 +53,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun PackingListApp() {
     val listTypes = listOf("Reise", "Wochenende", "Camping", "Schule", "Arbeit")
     val items = remember {
@@ -190,7 +191,7 @@ fun TypeSelector(
 }
 
 @Composable
-fun PackingItemRow(
+private fun PackingItemRow(
     item: PackingItem,
     onCheckedChange: (Boolean) -> Unit,
     onDelete: () -> Unit
