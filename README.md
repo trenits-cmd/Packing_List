@@ -93,6 +93,10 @@ Die fertige APK liegt unter `app/build/outputs/apk/debug/app-debug.apk`.
 > öffentlich im Internet sichtbar. Das Token wird verschlüsselt auf dem Gerät
 > gespeichert und gehört nicht ins Repository.
 
+Über „GitHub-Verbindung trennen“ kann der Zugang wieder entfernt werden;
+bereits hochgeladene Dateien bleiben im Repository und müssen dort gelöscht
+werden.
+
 ## Artikelkatalog ändern
 
 Die Datei `app/src/main/res/raw/articles.csv` hat folgende Spalten:

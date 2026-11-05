@@ -251,6 +251,18 @@ fun GitHubScreen(
                 ) {
                     Text("Verbindung testen")
                 }
+
+                if (settings.isConfigured) {
+                    TextButton(
+                        onClick = { onSave(settings.copy(token = "")) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "GitHub-Verbindung trennen",
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
             }
         }
 
