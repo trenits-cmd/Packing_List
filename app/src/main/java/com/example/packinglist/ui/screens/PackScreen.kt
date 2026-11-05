@@ -1,0 +1,434 @@
+package com.example.packinglist.ui.screens
+
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Luggage
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.example.packinglist.data.Availability
+import com.example.packinglist.data.PackEntry
+import com.example.packinglist.data.Trip
+import com.example.packinglist.data.importanceLabel
+import com.example.packinglist.ui.components.ArticlePhoto
+import com.example.packinglist.ui.components.ConfirmDialog
+import com.example.packinglist.ui.components.EmptyState
+import com.example.packinglist.ui.components.SectionHeader
+import com.example.packinglist.ui.components.StatusBadge
+import com.example.packinglist.ui.theme.LocalStatusColors
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun PackScreen(
+    trip: Trip,
+    items: List<PackEntry>,
+    onLeaveTrip: () -> Unit,
+    onPackedChange: (PackEntry, Boolean) -> Unit,
+    onResetPacked: () -> Unit,
+    onOpenDatabase: () -> Unit
+) {
+    val statusColors = LocalStatusColors.current
+    val packedCount = items.count { it.isPacked }
+    val totalCount = items.size
+    val openItems = remember(items) {
+        items.filter { !it.isPacked }
+            .sortedWith(
+                compareBy(
+                    { it.article.importance },
+                    { it.article.sortOrder },
+                    { it.article.name.lowercase() }
+                )
+            )
+    }
+    val packedItems = remember(items) {
+        items.filter { it.isPacked }
+            .sortedByDescending { it.packedAt ?: 0L }
+    }
+    var showResetDialog by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onLeaveTrip) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "Zur Reiseauswahl"
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = trip.name,
+                        style = MaterialTheme.typography.headlineSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        StatusBadge(
+                            text = trip.tripType.label,
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        StatusBadge(
+                            text = "${trip.season.emoji} ${trip.season.label}",
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+
+            if (items.isNotEmpty()) {
+                PackingProgressCard(packed = packedCount, total = totalCount)
+            }
+        }
+
+        if (items.isEmpty()) {
+            EmptyState(
+                icon = Icons.Rounded.Luggage,
+                title = "Keine Artikel für diese Reise",
+                text = "Für diese Reiseart und Jahreszeit sind noch keine Artikel in der " +
+                    "Datenbank hinterlegt. Füge sie jetzt hinzu.",
+                actionLabel = "Artikel hinzufügen",
+                onAction = onOpenDatabase,
+                modifier = Modifier.weight(1f)
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item(key = "open-header") {
+                    SectionHeader(
+                        title = "Noch offen",
+                        count = openItems.size,
+                        color = statusColors.open
+                    )
+                }
+
+                if (openItems.isEmpty()) {
+                    item(key = "all-packed") {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = statusColors.packedContainer
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(16.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = null,
+                                    tint = statusColors.packed
+                                )
+                                Text(
+                                    text = "Alles gepackt – gute Reise!",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = statusColors.onPackedContainer
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    items(openItems, key = { it.article.id }) { entry ->
+                        PackingItemCard(
+                            entry = entry,
+                            packed = false,
+                            onPackedChange = { packed -> onPackedChange(entry, packed) },
+                            modifier = Modifier.animateItemPlacement()
+                        )
+                    }
+                }
+
+                if (packedItems.isNotEmpty()) {
+                    item(key = "packed-header") {
+                        SectionHeader(
+                            title = "Bereits gepackt",
+                            count = packedItems.size,
+                            color = statusColors.packed,
+                            modifier = Modifier.padding(top = 12.dp)
+                        )
+                    }
+                    items(packedItems, key = { it.article.id }) { entry ->
+                        PackingItemCard(
+                            entry = entry,
+                            packed = true,
+                            onPackedChange = { packed -> onPackedChange(entry, packed) },
+                            modifier = Modifier.animateItemPlacement()
+                        )
+                    }
+                }
+
+                item(key = "reset") {
+                    if (packedCount > 0) {
+                        TextButton(
+                            onClick = { showResetDialog = true },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Refresh,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.size(8.dp))
+                            Text("Alle Häkchen zurücksetzen")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showResetDialog) {
+        ConfirmDialog(
+            title = "Liste zurücksetzen?",
+            text = "Alle gepackten Artikel werden wieder als offen markiert.",
+            confirmLabel = "Zurücksetzen",
+            onConfirm = {
+                onResetPacked()
+                showResetDialog = false
+            },
+            onDismiss = { showResetDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun PackingProgressCard(packed: Int, total: Int) {
+    val statusColors = LocalStatusColors.current
+    val fraction = if (total == 0) 0f else packed.toFloat() / total
+    val done = total > 0 && packed == total
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(
+            containerColor = if (done) statusColors.packedContainer
+            else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "$packed von $total gepackt",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (done) statusColors.onPackedContainer
+                    else MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "${(fraction * 100).toInt()} %",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (done) statusColors.packed
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            LinearProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp),
+                color = statusColors.packed,
+                trackColor = statusColors.open.copy(alpha = 0.18f)
+            )
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (done) {
+                    Icon(
+                        imageVector = Icons.Rounded.CheckCircle,
+                        contentDescription = null,
+                        tint = statusColors.packed,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "Fertig – alles ist im Koffer.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = statusColors.onPackedContainer
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(statusColors.open, CircleShape)
+                    )
+                    Text(
+                        text = "${total - packed} Artikel noch offen",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PackingItemCard(
+    entry: PackEntry,
+    packed: Boolean,
+    onPackedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val statusColors = LocalStatusColors.current
+    val article = entry.article
+    val accent = if (packed) statusColors.packed else statusColors.open
+    val container = if (packed) statusColors.packedContainer else statusColors.openContainer
+    val content = if (packed) statusColors.onPackedContainer else statusColors.onOpenContainer
+
+    var sliderValue by remember(article.id) { mutableFloatStateOf(if (packed) 1f else 0f) }
+    LaunchedEffect(packed) {
+        sliderValue = if (packed) 1f else 0f
+    }
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = container)
+    ) {
+        Column(
+            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(accent, CircleShape)
+                )
+                ArticlePhoto(
+                    photoPath = article.photoPath,
+                    size = 44.dp,
+                    contentDescription = "Foto von ${article.name}"
+                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = article.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = content
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = article.importanceLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = accent
+                        )
+                        if (article.availability != Availability.ALWAYS) {
+                            Text(
+                                text = "· ${article.availability.emoji} ${article.availability.label}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = accent.copy(alpha = 0.8f)
+                            )
+                        }
+                    }
+                }
+                StatusBadge(
+                    text = if (packed) "Gepackt" else "Offen",
+                    containerColor = accent.copy(alpha = 0.14f),
+                    contentColor = accent
+                )
+            }
+
+            Slider(
+                value = sliderValue,
+                onValueChange = { sliderValue = it },
+                onValueChangeFinished = {
+                    if (packed) {
+                        if (sliderValue <= UNPACK_THRESHOLD) onPackedChange(false)
+                        sliderValue = 1f
+                    } else {
+                        if (sliderValue >= PACK_THRESHOLD) onPackedChange(true)
+                        sliderValue = 0f
+                    }
+                },
+                colors = SliderDefaults.colors(
+                    thumbColor = accent,
+                    activeTrackColor = accent,
+                    inactiveTrackColor = accent.copy(alpha = 0.22f),
+                    activeTickColor = Color.Transparent,
+                    inactiveTickColor = Color.Transparent
+                )
+            )
+
+            Text(
+                text = if (packed) {
+                    "Nach links schieben, um wieder auszupacken"
+                } else {
+                    "Nach rechts schieben, wenn eingepackt"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = accent
+            )
+        }
+    }
+}
+
+private const val PACK_THRESHOLD = 0.8f
+private const val UNPACK_THRESHOLD = 0.2f
