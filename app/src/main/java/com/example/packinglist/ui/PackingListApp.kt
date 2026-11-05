@@ -7,11 +7,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.Luggage
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -85,8 +86,16 @@ fun PackingListApp(viewModel: PackingViewModel = viewModel()) {
                                 modifier = Modifier.size(24.dp)
                             )
                             Text(
-                                text = "Packliste",
+                                text = "Packing List",
                                 fontWeight = FontWeight.Bold
+                            )
+                        }
+                    },
+                    actions = {
+                        IconButton(onClick = { selectedTab = AppTab.GITHUB }) {
+                            Icon(
+                                imageVector = Icons.Rounded.Settings,
+                                contentDescription = "GitHub-Einstellungen"
                             )
                         }
                     },
@@ -119,17 +128,6 @@ fun PackingListApp(viewModel: PackingViewModel = viewModel()) {
                         },
                         label = { Text("Datenbank") }
                     )
-                    NavigationBarItem(
-                        selected = selectedTab == AppTab.GITHUB,
-                        onClick = { selectedTab = AppTab.GITHUB },
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Rounded.CloudUpload,
-                                contentDescription = null
-                            )
-                        },
-                        label = { Text("GitHub") }
-                    )
                 }
             }
         ) { innerPadding ->
@@ -148,6 +146,7 @@ fun PackingListApp(viewModel: PackingViewModel = viewModel()) {
                                 counts = uiState.counts,
                                 onOpenTrip = viewModel::openTrip,
                                 onCreateTrip = viewModel::createTrip,
+                                onDeleteTrip = viewModel::deleteTrip,
                                 onOpenDatabase = { selectedTab = AppTab.DATABASE }
                             )
                         } else {
@@ -157,6 +156,7 @@ fun PackingListApp(viewModel: PackingViewModel = viewModel()) {
                                 onLeaveTrip = viewModel::leaveTrip,
                                 onPackedChange = viewModel::setPacked,
                                 onResetPacked = { viewModel.resetPacked(activeTrip.id) },
+                                onDeleteTrip = { viewModel.deleteTrip(activeTrip) },
                                 onOpenDatabase = {
                                     viewModel.useActiveTripInDatabase()
                                     selectedTab = AppTab.DATABASE

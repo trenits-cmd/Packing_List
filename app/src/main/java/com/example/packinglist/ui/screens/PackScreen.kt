@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Luggage
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Card
@@ -63,6 +64,7 @@ fun PackScreen(
     onLeaveTrip: () -> Unit,
     onPackedChange: (PackEntry, Boolean) -> Unit,
     onResetPacked: () -> Unit,
+    onDeleteTrip: () -> Unit,
     onOpenDatabase: () -> Unit
 ) {
     val statusColors = LocalStatusColors.current
@@ -83,6 +85,7 @@ fun PackScreen(
             .sortedByDescending { it.packedAt ?: 0L }
     }
     var showResetDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -121,6 +124,13 @@ fun PackScreen(
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                }
+                IconButton(onClick = { showDeleteDialog = true }) {
+                    Icon(
+                        imageVector = Icons.Rounded.DeleteOutline,
+                        contentDescription = "Reise löschen",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
@@ -241,6 +251,21 @@ fun PackScreen(
                 showResetDialog = false
             },
             onDismiss = { showResetDialog = false }
+        )
+    }
+
+    if (showDeleteDialog) {
+        ConfirmDialog(
+            title = "Reise löschen?",
+            text = "„${trip.name}“ und der Packstand werden dauerhaft entfernt. " +
+                "Die Artikel im Katalog bleiben erhalten.",
+            confirmLabel = "Löschen",
+            destructive = true,
+            onConfirm = {
+                showDeleteDialog = false
+                onDeleteTrip()
+            },
+            onDismiss = { showDeleteDialog = false }
         )
     }
 }

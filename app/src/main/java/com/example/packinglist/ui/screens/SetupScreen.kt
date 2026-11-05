@@ -16,6 +16,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.BeachAccess
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material.icons.rounded.Work
 import androidx.compose.material3.Button
@@ -44,6 +45,7 @@ import com.example.packinglist.data.Trip
 import com.example.packinglist.data.TripCount
 import com.example.packinglist.data.TripType
 import com.example.packinglist.ui.components.AppDropdown
+import com.example.packinglist.ui.components.ConfirmDialog
 import com.example.packinglist.ui.components.StatusBadge
 import com.example.packinglist.ui.components.TripFormDialog
 
@@ -53,12 +55,14 @@ fun SetupScreen(
     counts: Map<Long, TripCount>,
     onOpenTrip: (Trip) -> Unit,
     onCreateTrip: (String, TripType, Season) -> Unit,
+    onDeleteTrip: (Trip) -> Unit,
     onOpenDatabase: () -> Unit
 ) {
     var tripType by rememberSaveable { mutableStateOf(TripType.PRIVATE) }
     var season by rememberSaveable { mutableStateOf(Season.SUMMER) }
     var query by rememberSaveable { mutableStateOf("") }
     var showCreateDialog by remember { mutableStateOf(false) }
+    var tripToDelete by remember { mutableStateOf<Trip?>(null) }
 
     val cleanQuery = query.trim()
     val matches = remember(trips, tripType, season, cleanQuery) {
@@ -216,7 +220,8 @@ fun SetupScreen(
                 TripSuggestionCard(
                     trip = trip,
                     count = counts[trip.id],
-                    onClick = { onOpenTrip(trip) }
+                    onClick = { onOpenTrip(trip) },
+                    onDelete = { tripToDelete = trip }
                 )
             }
         }
@@ -248,13 +253,30 @@ fun SetupScreen(
             initialSeason = season
         )
     }
+
+    val deletingTrip = tripToDelete
+    if (deletingTrip != null) {
+        ConfirmDialog(
+            title = "Reise löschen?",
+            text = "„${deletingTrip.name}“ und der Packstand werden dauerhaft entfernt. " +
+                "Die Artikel im Katalog bleiben erhalten.",
+            confirmLabel = "Löschen",
+            destructive = true,
+            onConfirm = {
+                onDeleteTrip(deletingTrip)
+                tripToDelete = null
+            },
+            onDismiss = { tripToDelete = null }
+        )
+    }
 }
 
 @Composable
 private fun TripSuggestionCard(
     trip: Trip,
     count: TripCount?,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDelete: () -> Unit
 ) {
     ElevatedCard(
         onClick = onClick,
@@ -307,12 +329,20 @@ private fun TripSuggestionCard(
                 }
                 Text(
                     text = if (count == null || count.total == 0) {
-                        "Noch keine Packpunkte"
+                        "Noch keine Artikel"
                     } else {
-                        "${count.total} Packpunkte · ${count.packed} gepackt"
+                        "${count.total} Artikel · ${count.packed} gepackt"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            IconButton(onClick = onDelete) {
+                Icon(
+                    imageVector = Icons.Rounded.DeleteOutline,
+                    contentDescription = "Reise löschen",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 

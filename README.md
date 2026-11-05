@@ -1,4 +1,4 @@
-# Packliste
+# Packing List
 
 Eine lokale Android-Packlisten-App mit Jetpack Compose und Room-Datenbank.
 
@@ -22,11 +22,13 @@ Eine lokale Android-Packlisten-App mit Jetpack Compose und Room-Datenbank.
 - **Artikelfotos:** Zu jedem Artikel kann in der Datenbank ein eigenes Foto
   ausgewählt werden. Es wird in den privaten App-Speicher kopiert und in der
   Packliste sowie im Katalog angezeigt.
-- **GitHub-Speicher:** Nach dem Hinterlegen eines GitHub-Tokens im Tab
-  „GitHub“ werden neue Fotos zusätzlich in das Repository hochgeladen.
-  Bereits lokale Fotos lassen sich dort nachträglich hochladen.
+- **GitHub-Speicher:** Nach dem Hinterlegen eines GitHub-Tokens über das
+  Zahnrad oben rechts werden neue Fotos zusätzlich in das Repository
+  hochgeladen. Bereits lokale Fotos lassen sich dort nachträglich hochladen.
 - **Datenbank verwalten:** Reisen anlegen, bearbeiten und löschen; Artikel
   hinzufügen, bearbeiten, filtern, suchen und löschen.
+- **Alte Reisen löschen:** In der Reiseauswahl oder direkt in der geöffneten
+  Packliste über das Papierkorb-Symbol – mit Sicherheitsabfrage.
 - **Persistenz:** Reisen, Artikel, Fotos und Packstände liegen lokal in einer
   Room-Datenbank bzw. im privaten App-Speicher.
 - **Darstellung:** Material-3-Design mit hellem und dunklem Farbschema.
@@ -79,7 +81,7 @@ Die fertige APK liegt unter `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## GitHub-Fotos einrichten
 
-1. In der App den Tab **GitHub** öffnen.
+1. In der App oben rechts auf das **Zahnrad** tippen.
 2. Ein Fine-grained Personal Access Token erstellen:
    - Repository-Zugriff: nur `trenits-cmd/Packing_List`
    - Berechtigung: **Contents – Read and write**
