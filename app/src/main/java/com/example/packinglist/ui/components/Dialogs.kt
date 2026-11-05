@@ -124,7 +124,8 @@ fun ArticleFormDialog(
     initialTripType: TripType = TripType.PRIVATE,
     initialAvailability: Availability = Availability.ALWAYS,
     initialImportance: Int = 1,
-    existingPhotoPath: String? = null
+    existingPhotoPath: String? = null,
+    existingPhotoUrl: String? = null
 ) {
     var name by remember { mutableStateOf(initialName) }
     var tripType by remember { mutableStateOf(initialTripType) }
@@ -142,10 +143,14 @@ fun ArticleFormDialog(
         }
     }
 
+    val localPhoto = existingPhotoPath
+        ?.let { File(it) }
+        ?.takeIf { it.exists() }
     val previewModel: Any? = when {
         removePhoto -> null
         pickedPhotoUri != null -> pickedPhotoUri
-        existingPhotoPath != null -> File(existingPhotoPath)
+        localPhoto != null -> localPhoto
+        existingPhotoUrl != null -> existingPhotoUrl
         else -> null
     }
 
@@ -261,7 +266,8 @@ fun ArticleFormDialog(
                         }
                     }
                     Text(
-                        text = "Fotos werden lokal auf dem Gerät gespeichert.",
+                        text = "Fotos werden lokal gespeichert und – wenn GitHub " +
+                            "eingerichtet ist – zusätzlich ins Repository hochgeladen.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

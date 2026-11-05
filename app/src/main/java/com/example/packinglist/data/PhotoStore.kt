@@ -12,8 +12,16 @@ import java.util.UUID
 object PhotoStore {
 
     fun save(context: Context, uri: Uri): String? = runCatching {
+        val extension = when (context.contentResolver.getType(uri)) {
+            "image/png" -> "png"
+            "image/webp" -> "webp"
+            "image/gif" -> "gif"
+            "image/heic", "image/heif" -> "heic"
+            "image/bmp" -> "bmp"
+            else -> "jpg"
+        }
         val directory = File(context.filesDir, "article_photos").apply { mkdirs() }
-        val file = File(directory, "article_${UUID.randomUUID()}.jpg")
+        val file = File(directory, "article_${UUID.randomUUID()}.$extension")
         context.contentResolver.openInputStream(uri)?.use { input ->
             file.outputStream().use { output -> input.copyTo(output) }
         } ?: return null

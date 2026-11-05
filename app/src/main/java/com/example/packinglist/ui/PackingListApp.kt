@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CloudUpload
 import androidx.compose.material.icons.rounded.Luggage
 import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -35,19 +36,22 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.packinglist.ui.screens.DatabaseScreen
+import com.example.packinglist.ui.screens.GitHubScreen
 import com.example.packinglist.ui.screens.PackScreen
 import com.example.packinglist.ui.screens.SetupScreen
 import com.example.packinglist.ui.theme.PackingListTheme
 
 private enum class AppTab {
     PACK,
-    DATABASE
+    DATABASE,
+    GITHUB
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PackingListApp(viewModel: PackingViewModel = viewModel()) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val githubSettings by viewModel.githubSettings.collectAsStateWithLifecycle()
     var selectedTab by rememberSaveable { mutableStateOf(AppTab.PACK) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -57,7 +61,7 @@ fun PackingListApp(viewModel: PackingViewModel = viewModel()) {
         }
     }
 
-    BackHandler(enabled = selectedTab == AppTab.DATABASE) {
+    BackHandler(enabled = selectedTab != AppTab.PACK) {
         selectedTab = AppTab.PACK
     }
     BackHandler(enabled = selectedTab == AppTab.PACK && uiState.activeTrip != null) {
@@ -115,6 +119,17 @@ fun PackingListApp(viewModel: PackingViewModel = viewModel()) {
                         },
                         label = { Text("Datenbank") }
                     )
+                    NavigationBarItem(
+                        selected = selectedTab == AppTab.GITHUB,
+                        onClick = { selectedTab = AppTab.GITHUB },
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Rounded.CloudUpload,
+                                contentDescription = null
+                            )
+                        },
+                        label = { Text("GitHub") }
+                    )
                 }
             }
         ) { innerPadding ->
@@ -167,6 +182,15 @@ fun PackingListApp(viewModel: PackingViewModel = viewModel()) {
                                 viewModel.openTrip(trip)
                                 selectedTab = AppTab.PACK
                             }
+                        )
+                    }
+
+                    AppTab.GITHUB -> {
+                        GitHubScreen(
+                            settings = githubSettings,
+                            onSave = viewModel::saveGitHubSettings,
+                            onTest = viewModel::testGitHubConnection,
+                            onUploadLocalPhotos = viewModel::uploadLocalPhotos
                         )
                     }
                 }

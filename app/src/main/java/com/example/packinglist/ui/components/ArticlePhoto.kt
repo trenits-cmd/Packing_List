@@ -19,19 +19,26 @@ import coil.compose.AsyncImage
 import java.io.File
 
 /**
- * Zeigt das lokal gespeicherte Foto eines Artikels oder einen Platzhalter.
+ * Zeigt das lokal gespeicherte Foto eines Artikels, ersatzweise die
+ * GitHub-URL, oder einen Platzhalter.
  */
 @Composable
 fun ArticlePhoto(
     photoPath: String?,
+    photoUrl: String? = null,
     modifier: Modifier = Modifier,
     size: Dp = 52.dp,
     showPlaceholder: Boolean = false,
     contentDescription: String? = null
 ) {
-    if (photoPath != null) {
+    val localFile = photoPath
+        ?.let { File(it) }
+        ?.takeIf { it.exists() }
+    val model: Any? = localFile ?: photoUrl?.takeIf { it.isNotBlank() }
+
+    if (model != null) {
         AsyncImage(
-            model = File(photoPath),
+            model = model,
             contentDescription = contentDescription,
             contentScale = ContentScale.Crop,
             modifier = modifier

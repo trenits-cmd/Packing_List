@@ -22,6 +22,9 @@ Eine lokale Android-Packlisten-App mit Jetpack Compose und Room-Datenbank.
 - **Artikelfotos:** Zu jedem Artikel kann in der Datenbank ein eigenes Foto
   ausgewählt werden. Es wird in den privaten App-Speicher kopiert und in der
   Packliste sowie im Katalog angezeigt.
+- **GitHub-Speicher:** Nach dem Hinterlegen eines GitHub-Tokens im Tab
+  „GitHub“ werden neue Fotos zusätzlich in das Repository hochgeladen.
+  Bereits lokale Fotos lassen sich dort nachträglich hochladen.
 - **Datenbank verwalten:** Reisen anlegen, bearbeiten und löschen; Artikel
   hinzufügen, bearbeiten, filtern, suchen und löschen.
 - **Persistenz:** Reisen, Artikel, Fotos und Packstände liegen lokal in einer
@@ -32,8 +35,10 @@ Eine lokale Android-Packlisten-App mit Jetpack Compose und Room-Datenbank.
 
 - Kotlin 1.9, Jetpack Compose (Material 3)
 - Room 2.6 mit KSP, ViewModel + StateFlow
-- Coil für die Anzeige lokaler Artikelfotos
+- Coil für die Anzeige lokaler und entfernter Artikelfotos
 - Android Photo Picker (`ActivityResultContracts.PickVisualMedia`)
+- GitHub Contents API über OkHttp
+- Verschlüsselte Token-Speicherung mit `EncryptedSharedPreferences`
 - minSdk 24, targetSdk/compileSdk 34
 
 ## Projektstruktur
@@ -72,6 +77,22 @@ gradlew.bat assembleDebug
 
 Die fertige APK liegt unter `app/build/outputs/apk/debug/app-debug.apk`.
 
+## GitHub-Fotos einrichten
+
+1. In der App den Tab **GitHub** öffnen.
+2. Ein Fine-grained Personal Access Token erstellen:
+   - Repository-Zugriff: nur `trenits-cmd/Packing_List`
+   - Berechtigung: **Contents – Read and write**
+3. Token zusammen mit Owner, Repository, Branch und Zielordner eintragen und
+   speichern.
+4. Mit „Verbindung testen“ prüfen, ob die Zugangsdaten funktionieren.
+5. Neue Artikelfotos werden ab dann automatisch hochgeladen. Vorhandene lokale
+   Fotos lassen sich über „Lokale Fotos jetzt hochladen“ nachziehen.
+
+> **Achtung:** Das Repository ist öffentlich. Hochgeladene Fotos sind damit
+> öffentlich im Internet sichtbar. Das Token wird verschlüsselt auf dem Gerät
+> gespeichert und gehört nicht ins Repository.
+
 ## Artikelkatalog ändern
 
 Die Datei `app/src/main/res/raw/articles.csv` hat folgende Spalten:
@@ -85,9 +106,9 @@ A1 Bescheinigung,Dienstreise,immer,1
 Erlaubte Werte für `Reiseart` sind `Urlaub` und `Dienstreise`. Für `Saison`
 werden `immer`, `Frühling`, `Sommer`, `Herbst` und `Winter` unterstützt.
 
-Die CSV ist die Quelle für den Import in die Datenbankversion 2. Nach dem
-ersten Start werden Artikel direkt in der App verwaltet; spätere Änderungen
-an der CSV werden nicht automatisch in eine bestehende Datenbank übernommen.
+Die CSV ist die Quelle für den Import in die Datenbank. Nach dem ersten Start
+werden Artikel direkt in der App verwaltet; spätere Änderungen an der CSV
+werden nicht automatisch in eine bestehende Datenbank übernommen.
 
 ## CI
 

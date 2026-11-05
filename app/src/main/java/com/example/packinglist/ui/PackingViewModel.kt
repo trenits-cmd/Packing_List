@@ -6,6 +6,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.packinglist.data.Article
 import com.example.packinglist.data.Availability
+import com.example.packinglist.data.GitHubClient
+import com.example.packinglist.data.GitHubSettings
+import com.example.packinglist.data.GitHubSettingsStore
 import com.example.packinglist.data.PackEntry
 import com.example.packinglist.data.PackingDatabase
 import com.example.packinglist.data.PackingRepository
@@ -22,12 +25,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.io.File
 
 data class PackingUiState(
     val trips: List<Trip> = emptyList(),
@@ -48,11 +53,16 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
         preferences = application.getSharedPreferences("packing_list", Application.MODE_PRIVATE),
         appContext = application.applicationContext
     )
+    private val githubSettingsStore = GitHubSettingsStore(application)
+    private val githubClient = GitHubClient()
 
     private val activeTripId = MutableStateFlow<Long?>(null)
     private val dataTripId = MutableStateFlow<Long?>(null)
 
-    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    private val _githubSettings = MutableStateFlow(githubSettingsStore.load())
+    val githubSettings: StateFlow<GitHubSettings> = _githubSettings.asStateFlow()
+
+    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
     val messages = _messages.asSharedFlow()
 
     private data class Snapshot(
@@ -211,7 +221,7 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
                 return@launch
             }
             val photoPath = photoUri?.let { PhotoStore.save(getApplication(), it) }
-            dao.insertArticle(
+            val articleId = dao.insertArticle(
                 Article(
                     name = cleanName,
                     tripType = tripType,
@@ -221,6 +231,14 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
                     sortOrder = dao.nextArticleSortOrder()
                 )
             )
+            if (articleId > 0 && photoPath != null) {
+                uploadPhotoToGitHub(
+                    articleId = articleId,
+                    articleName = cleanName,
+                    localPath = photoPath,
+                    oldRemotePath = null
+                )
+            }
         }
     }
 
@@ -237,17 +255,28 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
             }
 
             val existing = dao.getArticle(article.id) ?: return@launch
-            var photoPath = existing.photoPath
+            var localPath = existing.photoPath
+            var remoteUrl = existing.photoUrl
+            var remotePath = existing.photoRemotePath
+            var oldRemoteToDelete: String? = null
+            var newLocalToUpload: String? = null
 
             if (removePhoto) {
                 PhotoStore.delete(existing.photoPath)
-                photoPath = null
+                localPath = null
+                remoteUrl = null
+                remotePath = null
+                oldRemoteToDelete = existing.photoRemotePath
             }
             if (photoUri != null) {
                 val saved = PhotoStore.save(getApplication(), photoUri)
                 if (saved != null) {
                     PhotoStore.delete(existing.photoPath)
-                    photoPath = saved
+                    localPath = saved
+                    remoteUrl = null
+                    remotePath = null
+                    oldRemoteToDelete = existing.photoRemotePath
+                    newLocalToUpload = saved
                 }
             }
 
@@ -261,9 +290,24 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
                 article.copy(
                     name = cleanName,
                     importance = article.importance.coerceIn(1, 3),
-                    photoPath = photoPath
+                    photoPath = localPath,
+                    photoUrl = remoteUrl,
+                    photoRemotePath = remotePath
                 )
             )
+
+            val settings = githubSettingsStore.load()
+            if (!oldRemoteToDelete.isNullOrBlank() && settings.isConfigured) {
+                githubClient.deletePhoto(settings, oldRemoteToDelete)
+            }
+            if (newLocalToUpload != null) {
+                uploadPhotoToGitHub(
+                    articleId = article.id,
+                    articleName = cleanName,
+                    localPath = newLocalToUpload,
+                    oldRemotePath = null
+                )
+            }
         }
     }
 
@@ -271,6 +315,131 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch(Dispatchers.IO) {
             dao.deleteArticle(article)
             PhotoStore.delete(article.photoPath)
+
+            val settings = githubSettingsStore.load()
+            val remotePath = article.photoRemotePath
+            if (settings.isConfigured && !remotePath.isNullOrBlank()) {
+                githubClient.deletePhoto(settings, remotePath)
+            }
         }
+    }
+
+    // --- GitHub -------------------------------------------------------------
+
+    fun saveGitHubSettings(settings: GitHubSettings) {
+        val cleaned = settings.copy(
+            owner = settings.owner.trim(),
+            repo = settings.repo.trim(),
+            branch = settings.branch.trim().ifBlank { "main" },
+            directory = settings.directory.trim().trim('/'),
+            token = settings.token.trim()
+        )
+        githubSettingsStore.save(cleaned)
+        _githubSettings.value = githubSettingsStore.load()
+        _messages.tryEmit("GitHub-Einstellungen gespeichert.")
+    }
+
+    fun testGitHubConnection(settings: GitHubSettings) {
+        if (!settings.isConfigured) {
+            _messages.tryEmit("Bitte Owner, Repository und Token ausfüllen.")
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            githubClient.testConnection(settings)
+                .onSuccess { _messages.tryEmit(it) }
+                .onFailure {
+                    _messages.tryEmit("GitHub-Test fehlgeschlagen: ${it.message}")
+                }
+        }
+    }
+
+    /**
+     * Lädt alle lokal vorhandenen Fotos hoch, die noch keine GitHub-URL haben.
+     * Damit lassen sich Fotos nachträglich sichern, die vor dem Einrichten
+     * von GitHub hinzugefügt wurden.
+     */
+    fun uploadLocalPhotos() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val settings = githubSettingsStore.load()
+            if (!settings.isConfigured) {
+                _messages.tryEmit("Bitte zuerst die GitHub-Einstellungen speichern.")
+                return@launch
+            }
+
+            val pending = dao.getArticlesOnce().filter { article ->
+                val file = article.photoPath?.let { File(it) }
+                file != null && file.exists() && article.photoRemotePath.isNullOrBlank()
+            }
+            if (pending.isEmpty()) {
+                _messages.tryEmit("Keine neuen lokalen Fotos zum Hochladen gefunden.")
+                return@launch
+            }
+
+            var uploaded = 0
+            pending.forEach { article ->
+                val file = article.photoPath?.let { File(it) } ?: return@forEach
+                githubClient.uploadPhoto(settings, file, article.name)
+                    .onSuccess { remote ->
+                        dao.updateArticle(
+                            article.copy(
+                                photoUrl = remote.downloadUrl,
+                                photoRemotePath = remote.remotePath
+                            )
+                        )
+                        uploaded += 1
+                    }
+                    .onFailure {
+                        _messages.tryEmit(
+                            "Upload von „${article.name}“ fehlgeschlagen: ${it.message}"
+                        )
+                    }
+            }
+            _messages.tryEmit("$uploaded von ${pending.size} Fotos auf GitHub gespeichert.")
+        }
+    }
+
+    private suspend fun uploadPhotoToGitHub(
+        articleId: Long,
+        articleName: String,
+        localPath: String,
+        oldRemotePath: String?
+    ) {
+        val settings = githubSettingsStore.load()
+        if (!settings.isConfigured) {
+            _messages.tryEmit(
+                "Foto lokal gespeichert. Für GitHub bitte zuerst die Einstellungen ausfüllen."
+            )
+            return
+        }
+
+        val file = File(localPath)
+        if (!file.exists()) return
+
+        githubClient.uploadPhoto(settings, file, articleName)
+            .onSuccess { remote ->
+                val current = dao.getArticle(articleId)
+                if (current == null || current.photoPath != localPath) {
+                    // Artikel gelöscht oder Foto inzwischen ersetzt.
+                    githubClient.deletePhoto(settings, remote.remotePath)
+                    return@onSuccess
+                }
+                dao.updateArticle(
+                    current.copy(
+                        photoUrl = remote.downloadUrl,
+                        photoRemotePath = remote.remotePath
+                    )
+                )
+                if (!oldRemotePath.isNullOrBlank() &&
+                    oldRemotePath != remote.remotePath
+                ) {
+                    githubClient.deletePhoto(settings, oldRemotePath)
+                }
+                _messages.tryEmit("Foto auf GitHub gespeichert.")
+            }
+            .onFailure {
+                _messages.tryEmit(
+                    "Foto lokal gespeichert, GitHub-Upload fehlgeschlagen: ${it.message}"
+                )
+            }
     }
 }

@@ -45,6 +45,9 @@ interface PackingDao {
     @Query("SELECT * FROM articles WHERE id = :articleId")
     suspend fun getArticle(articleId: Long): Article?
 
+    @Query("SELECT * FROM articles")
+    suspend fun getArticlesOnce(): List<Article>
+
     @Query(
         "SELECT * FROM articles " +
             "WHERE LOWER(name) = LOWER(:name) AND tripType = :tripType " +

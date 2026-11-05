@@ -404,7 +404,8 @@ fun DatabaseScreen(
             initialTripType = editingArticle.tripType,
             initialAvailability = editingArticle.availability,
             initialImportance = editingArticle.importance,
-            existingPhotoPath = editingArticle.photoPath
+            existingPhotoPath = editingArticle.photoPath,
+            existingPhotoUrl = editingArticle.photoUrl
         )
     }
 
@@ -549,6 +550,7 @@ private fun AdminArticleRow(
         ) {
             ArticlePhoto(
                 photoPath = article.photoPath,
+                photoUrl = article.photoUrl,
                 size = 52.dp,
                 showPlaceholder = true,
                 contentDescription = "Foto von ${article.name}"

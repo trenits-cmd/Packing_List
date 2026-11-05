@@ -42,6 +42,10 @@ data class Article(
     val importance: Int = 1,
     /** Absoluter Pfad zu einem lokal gespeicherten Foto. */
     val photoPath: String? = null,
+    /** Öffentliche GitHub-Download-URL des Fotos. */
+    val photoUrl: String? = null,
+    /** Pfad im GitHub-Repository, z. B. article_photos/foto.jpg. */
+    val photoRemotePath: String? = null,
     val sortOrder: Int = 0
 )
 

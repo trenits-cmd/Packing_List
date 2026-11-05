@@ -362,6 +362,7 @@ private fun PackingItemCard(
                 )
                 ArticlePhoto(
                     photoPath = article.photoPath,
+                    photoUrl = article.photoUrl,
                     size = 44.dp,
                     contentDescription = "Foto von ${article.name}"
                 )
