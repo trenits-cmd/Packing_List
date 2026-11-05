@@ -1,3 +1,10 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <style name="Theme.PackingList" parent="@android:style/Theme.Material.Light.NoActionBar" />
+
+    <!-- Wird von der UCrop-Activity verwendet. -->
+    <style name="ucrop_Theme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">#00695C</item>
+        <item name="colorPrimaryDark">#004D40</item>
+        <item name="colorAccent">#FFB74D</item>
+    </style>
 </resources>

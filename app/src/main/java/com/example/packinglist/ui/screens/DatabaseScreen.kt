@@ -1,7 +1,9 @@
 package com.example.packinglist.ui.screens
 
 import android.net.Uri
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +25,8 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Luggage
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Storage
@@ -52,11 +56,13 @@ import com.example.packinglist.data.Availability
 import com.example.packinglist.data.Season
 import com.example.packinglist.data.Trip
 import com.example.packinglist.data.TripCount
+import com.example.packinglist.data.TripDates
 import com.example.packinglist.data.TripType
 import com.example.packinglist.data.importanceLabel
 import com.example.packinglist.ui.components.AppDropdown
 import com.example.packinglist.ui.components.ArticleFormDialog
 import com.example.packinglist.ui.components.ArticlePhoto
+import com.example.packinglist.ui.components.ArticlePhotoLarge
 import com.example.packinglist.ui.components.ConfirmDialog
 import com.example.packinglist.ui.components.StatusBadge
 import com.example.packinglist.ui.components.TripFormDialog
@@ -69,7 +75,7 @@ fun DatabaseScreen(
     dataTrip: Trip?,
     articles: List<Article>,
     onSelectTrip: (Long?) -> Unit,
-    onCreateTrip: (String, TripType, Season) -> Unit,
+    onCreateTrip: (String, TripType, Season, Long, Long) -> Unit,
     onUpdateTrip: (Trip) -> Unit,
     onDeleteTrip: (Trip) -> Unit,
     onAddArticle: (String, TripType, Availability, Int, Uri?) -> Unit,
@@ -332,7 +338,9 @@ fun DatabaseScreen(
             title = "Neue Reise anlegen",
             confirmLabel = "Reise anlegen",
             onDismiss = { showCreateTripDialog = false },
-            onConfirm = { name, type, season -> onCreateTrip(name, type, season) },
+            onConfirm = { name, type, season, startDate, endDate ->
+                onCreateTrip(name, type, season, startDate, endDate)
+            },
             initialTripType = TripType.PRIVATE,
             initialSeason = Season.SUMMER
         )
@@ -343,14 +351,22 @@ fun DatabaseScreen(
             title = "Reise bearbeiten",
             confirmLabel = "Speichern",
             onDismiss = { showEditTripDialog = false },
-            onConfirm = { name, type, season ->
+            onConfirm = { name, type, season, startDate, endDate ->
                 onUpdateTrip(
-                    dataTrip.copy(name = name, tripType = type, season = season)
+                    dataTrip.copy(
+                        name = name,
+                        tripType = type,
+                        season = season,
+                        startDate = startDate,
+                        endDate = endDate
+                    )
                 )
             },
             initialName = dataTrip.name,
             initialTripType = dataTrip.tripType,
-            initialSeason = dataTrip.season
+            initialSeason = dataTrip.season,
+            initialStartDate = dataTrip.startDate,
+            initialEndDate = dataTrip.endDate
         )
     }
 
@@ -473,6 +489,14 @@ private fun TripOverviewCard(
                             contentColor = MaterialTheme.colorScheme.onSurface
                         )
                     }
+                    Text(
+                        text = "${TripDates.formatRange(trip.startDate, trip.endDate)} · " +
+                            TripDates.daysLabel(
+                                TripDates.daysInclusive(trip.startDate, trip.endDate)
+                            ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                 }
                 IconButton(onClick = onEdit) {
                     Icon(
@@ -533,6 +557,7 @@ private fun AdminArticleRow(
         2 -> MaterialTheme.colorScheme.secondary
         else -> MaterialTheme.colorScheme.outline
     }
+    var expanded by rememberSaveable(article.id) { mutableStateOf(false) }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -541,60 +566,89 @@ private fun AdminArticleRow(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
         )
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            ArticlePhoto(
-                photoPath = article.photoPath,
-                photoUrl = article.photoUrl,
-                size = 52.dp,
-                showPlaceholder = true,
-                contentDescription = "Foto von ${article.name}"
-            )
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = article.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+        Column(modifier = Modifier.animateContentSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { expanded = !expanded },
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(7.dp)
-                            .background(importanceColor, CircleShape)
+                    ArticlePhoto(
+                        photoPath = article.photoPath,
+                        photoUrl = article.photoUrl,
+                        size = 52.dp,
+                        showPlaceholder = true,
+                        contentDescription = "Foto von ${article.name}"
                     )
-                    Text(
-                        text = "${article.importanceLabel} · ${article.tripType.shortLabel} · " +
-                            if (article.availability == Availability.ALWAYS) {
-                                "Immer"
-                            } else {
-                                "${article.availability.emoji} ${article.availability.label}"
-                            },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = article.name,
+                            style = if (expanded) MaterialTheme.typography.titleLarge
+                            else MaterialTheme.typography.titleMedium,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(7.dp)
+                                    .background(importanceColor, CircleShape)
+                            )
+                            Text(
+                                text = "${article.importanceLabel} · " +
+                                    "${article.tripType.shortLabel} · " +
+                                    if (article.availability == Availability.ALWAYS) {
+                                        "Immer"
+                                    } else {
+                                        "${article.availability.emoji} " +
+                                            article.availability.label
+                                    },
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = if (expanded) Icons.Rounded.ExpandLess
+                        else Icons.Rounded.ExpandMore,
+                        contentDescription = if (expanded) "Artikel verkleinern"
+                        else "Artikel vergrößern",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        imageVector = Icons.Rounded.Edit,
+                        contentDescription = "Artikel bearbeiten"
+                    )
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(
+                        imageVector = Icons.Rounded.DeleteOutline,
+                        contentDescription = "Artikel löschen"
                     )
                 }
             }
-            IconButton(onClick = onEdit) {
-                Icon(
-                    imageVector = Icons.Rounded.Edit,
-                    contentDescription = "Artikel bearbeiten"
-                )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    imageVector = Icons.Rounded.DeleteOutline,
-                    contentDescription = "Artikel löschen"
+
+            if (expanded) {
+                ArticlePhotoLarge(
+                    photoPath = article.photoPath,
+                    photoUrl = article.photoUrl,
+                    modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                    contentDescription = "Großes Foto von ${article.name}"
                 )
             }
         }

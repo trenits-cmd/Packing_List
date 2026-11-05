@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Trip::class, Article::class, PackingState::class],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -29,6 +29,22 @@ abstract class PackingDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE trips ADD COLUMN startDate INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL(
+                    "ALTER TABLE trips ADD COLUMN endDate INTEGER NOT NULL DEFAULT 0"
+                )
+                val today = TripDates.todayUtcMillis()
+                db.execSQL(
+                    "UPDATE trips SET startDate = ?, endDate = ?",
+                    arrayOf<Any>(today, today)
+                )
+            }
+        }
+
         fun get(context: Context): PackingDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -36,7 +52,7 @@ abstract class PackingDatabase : RoomDatabase() {
                     PackingDatabase::class.java,
                     "packing-list.db"
                 )
-                    .addMigrations(MIGRATION_2_3)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
                     // Version 1 enthielt nur die alten Beispielreisen.
                     .fallbackToDestructiveMigration()
                     .build()

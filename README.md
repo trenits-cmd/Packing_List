@@ -10,6 +10,8 @@ Eine lokale Android-Packlisten-App mit Jetpack Compose und Room-Datenbank.
 - **Reise anlegen:** Existiert der eingegebene Name noch nicht, kann die Reise
   direkt neu angelegt werden. Die Packliste wird automatisch aus dem
   Artikelkatalog für Reiseart und Jahreszeit zusammengestellt.
+- **Reisezeitraum:** Start- und Enddatum per Kalender wählen (Standard: heute).
+  Die App berechnet die Anzahl der Reisetage inklusive beider Grenztage.
 - **Artikelkatalog:** 95 Artikel aus `app/src/main/res/raw/articles.csv` mit
   Reiseart, Saison und Wichtigkeit (1 = sehr wichtig). Der Katalog wird beim
   ersten Start importiert.
@@ -19,9 +21,12 @@ Eine lokale Android-Packlisten-App mit Jetpack Compose und Room-Datenbank.
   Wichtigkeit.
 - **Fortschritt:** Kopfkarte mit Anzahl gepackter Artikel und Fortschrittsbalken.
   Über „Alle Häkchen zurücksetzen“ startet die Liste wieder von vorn.
-- **Artikelfotos:** Zu jedem Artikel kann in der Datenbank ein eigenes Foto
-  ausgewählt werden. Es wird in den privaten App-Speicher kopiert und in der
-  Packliste sowie im Katalog angezeigt.
+- **Artikelfotos:** Fotos können direkt mit der Kamera aufgenommen oder aus
+  der Galerie gewählt und anschließend zugeschnitten werden. Sie werden lokal
+  gespeichert und beim Speichern automatisch nach GitHub hochgeladen, wenn die
+  Verbindung eingerichtet ist. In Packliste und Katalog ist das Foto sichtbar.
+- **Artikel vergrößern:** Ein Tipp auf einen Artikel klappt die Karte auf und
+  zeigt Name und Foto größer.
 - **GitHub-Speicher:** Nach dem Hinterlegen eines GitHub-Tokens über das
   Zahnrad oben rechts werden neue Fotos zusätzlich in das Repository
   hochgeladen. Bereits lokale Fotos lassen sich dort nachträglich hochladen.
@@ -38,9 +43,11 @@ Eine lokale Android-Packlisten-App mit Jetpack Compose und Room-Datenbank.
 - Kotlin 1.9, Jetpack Compose (Material 3)
 - Room 2.6 mit KSP, ViewModel + StateFlow
 - Coil für die Anzeige lokaler und entfernter Artikelfotos
-- Android Photo Picker (`ActivityResultContracts.PickVisualMedia`)
+- Android Photo Picker und Kamera-Aufnahme über `FileProvider`
+- Bildzuschnitt mit UCrop
 - GitHub Contents API über OkHttp
 - Verschlüsselte Token-Speicherung mit `EncryptedSharedPreferences`
+- `java.time` mit Core-Library-Desugaring
 - minSdk 24, targetSdk/compileSdk 34
 
 ## Projektstruktur

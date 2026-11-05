@@ -14,7 +14,7 @@ interface PackingDao {
 
     // --- Reisen -------------------------------------------------------------
 
-    @Query("SELECT * FROM trips ORDER BY createdAt DESC")
+    @Query("SELECT * FROM trips ORDER BY startDate DESC, createdAt DESC")
     fun observeTrips(): Flow<List<Trip>>
 
     @Query(

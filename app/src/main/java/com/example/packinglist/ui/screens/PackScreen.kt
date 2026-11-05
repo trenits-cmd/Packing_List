@@ -1,7 +1,9 @@
 package com.example.packinglist.ui.screens
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Luggage
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Card
@@ -39,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,8 +53,10 @@ import androidx.compose.ui.unit.dp
 import com.example.packinglist.data.Availability
 import com.example.packinglist.data.PackEntry
 import com.example.packinglist.data.Trip
+import com.example.packinglist.data.TripDates
 import com.example.packinglist.data.importanceLabel
 import com.example.packinglist.ui.components.ArticlePhoto
+import com.example.packinglist.ui.components.ArticlePhotoLarge
 import com.example.packinglist.ui.components.ConfirmDialog
 import com.example.packinglist.ui.components.EmptyState
 import com.example.packinglist.ui.components.SectionHeader
@@ -124,6 +131,14 @@ fun PackScreen(
                             contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                    Text(
+                        text = "${TripDates.formatRange(trip.startDate, trip.endDate)} · " +
+                            TripDates.daysLabel(
+                                TripDates.daysInclusive(trip.startDate, trip.endDate)
+                            ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 IconButton(onClick = { showDeleteDialog = true }) {
                     Icon(
@@ -362,6 +377,7 @@ private fun PackingItemCard(
     val content = if (packed) statusColors.onPackedContainer else statusColors.onOpenContainer
 
     var sliderValue by remember(article.id) { mutableFloatStateOf(if (packed) 1f else 0f) }
+    var expanded by rememberSaveable(article.id) { mutableStateOf(false) }
     LaunchedEffect(packed) {
         sliderValue = if (packed) 1f else 0f
     }
@@ -372,11 +388,15 @@ private fun PackingItemCard(
         colors = CardDefaults.cardColors(containerColor = container)
     ) {
         Column(
-            modifier = Modifier.padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 8.dp),
+            modifier = Modifier
+                .animateContentSize()
+                .padding(start = 14.dp, end = 14.dp, top = 12.dp, bottom = 8.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -394,7 +414,8 @@ private fun PackingItemCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = article.name,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = if (expanded) MaterialTheme.typography.titleLarge
+                        else MaterialTheme.typography.titleMedium,
                         color = content
                     )
                     Row(
@@ -419,6 +440,29 @@ private fun PackingItemCard(
                     text = if (packed) "Gepackt" else "Offen",
                     containerColor = accent.copy(alpha = 0.14f),
                     contentColor = accent
+                )
+                Icon(
+                    imageVector = if (expanded) Icons.Rounded.ExpandLess
+                    else Icons.Rounded.ExpandMore,
+                    contentDescription = if (expanded) "Artikel verkleinern"
+                    else "Artikel vergrößern",
+                    tint = accent
+                )
+            }
+
+            if (expanded) {
+                ArticlePhotoLarge(
+                    photoPath = article.photoPath,
+                    photoUrl = article.photoUrl,
+                    modifier = Modifier.padding(top = 6.dp),
+                    contentDescription = "Großes Foto von ${article.name}"
+                )
+                Text(
+                    text = "${article.tripType.shortLabel} · " +
+                        "${article.availability.label} · ${article.importanceLabel}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = accent.copy(alpha = 0.85f),
+                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
                 )
             }
 

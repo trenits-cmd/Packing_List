@@ -129,7 +129,13 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
         activeTripId.value = null
     }
 
-    fun createTrip(name: String, tripType: TripType, season: Season) {
+    fun createTrip(
+        name: String,
+        tripType: TripType,
+        season: Season,
+        startDate: Long,
+        endDate: Long
+    ) {
         val cleanName = name.trim()
         if (cleanName.isBlank()) return
         viewModelScope.launch {
@@ -141,7 +147,13 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
                 return@launch
             }
             val tripId = dao.insertTrip(
-                Trip(name = cleanName, tripType = tripType, season = season)
+                Trip(
+                    name = cleanName,
+                    tripType = tripType,
+                    season = season,
+                    startDate = startDate,
+                    endDate = endDate.coerceAtLeast(startDate)
+                )
             )
             if (tripId > 0) {
                 activeTripId.value = tripId
@@ -156,7 +168,12 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             val existing = dao.findTrip(cleanName, trip.tripType, trip.season)
             if (existing == null || existing.id == trip.id) {
-                dao.updateTrip(trip.copy(name = cleanName))
+                dao.updateTrip(
+                    trip.copy(
+                        name = cleanName,
+                        endDate = trip.endDate.coerceAtLeast(trip.startDate)
+                    )
+                )
             } else {
                 _messages.tryEmit(
                     "Eine Reise mit diesem Namen gibt es für diese Reiseart und " +

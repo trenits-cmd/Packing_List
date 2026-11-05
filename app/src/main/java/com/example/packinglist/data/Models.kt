@@ -1,5 +1,6 @@
 package com.example.packinglist.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
@@ -18,6 +19,10 @@ data class Trip(
     val name: String,
     val tripType: TripType,
     val season: Season,
+    @ColumnInfo(defaultValue = "0")
+    val startDate: Long = TripDates.todayUtcMillis(),
+    @ColumnInfo(defaultValue = "0")
+    val endDate: Long = TripDates.todayUtcMillis(),
     val createdAt: Long = System.currentTimeMillis()
 )
 

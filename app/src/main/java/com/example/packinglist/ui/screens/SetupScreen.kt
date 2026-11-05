@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.example.packinglist.data.Season
 import com.example.packinglist.data.Trip
 import com.example.packinglist.data.TripCount
+import com.example.packinglist.data.TripDates
 import com.example.packinglist.data.TripType
 import com.example.packinglist.ui.components.AppDropdown
 import com.example.packinglist.ui.components.ConfirmDialog
@@ -54,7 +55,7 @@ fun SetupScreen(
     trips: List<Trip>,
     counts: Map<Long, TripCount>,
     onOpenTrip: (Trip) -> Unit,
-    onCreateTrip: (String, TripType, Season) -> Unit,
+    onCreateTrip: (String, TripType, Season, Long, Long) -> Unit,
     onDeleteTrip: (Trip) -> Unit,
     onOpenDatabase: () -> Unit
 ) {
@@ -245,8 +246,8 @@ fun SetupScreen(
             title = "Neue Reise anlegen",
             confirmLabel = "Anlegen & öffnen",
             onDismiss = { showCreateDialog = false },
-            onConfirm = { name, type, selectedSeason ->
-                onCreateTrip(name, type, selectedSeason)
+            onConfirm = { name, type, selectedSeason, startDate, endDate ->
+                onCreateTrip(name, type, selectedSeason, startDate, endDate)
             },
             initialName = cleanQuery,
             initialTripType = tripType,
@@ -327,6 +328,14 @@ private fun TripSuggestionCard(
                         contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+                Text(
+                    text = "${TripDates.formatRange(trip.startDate, trip.endDate)} · " +
+                        TripDates.daysLabel(
+                            TripDates.daysInclusive(trip.startDate, trip.endDate)
+                        ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Text(
                     text = if (count == null || count.total == 0) {
                         "Noch keine Artikel"
