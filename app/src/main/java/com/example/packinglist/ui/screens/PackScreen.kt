@@ -5,6 +5,7 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,6 +35,7 @@ import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -112,6 +115,10 @@ fun PackScreen(
     }
     var showResetDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var filter by rememberSaveable { mutableStateOf(PackFilter.ALL) }
+    val showOpen = filter == PackFilter.ALL || filter == PackFilter.OPEN
+    val showPacked = filter == PackFilter.ALL || filter == PackFilter.PACKED
+    val showSkipped = filter == PackFilter.ALL || filter == PackFilter.SKIPPED
 
     Column(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -173,6 +180,30 @@ fun PackScreen(
             }
         }
 
+        if (items.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                PackFilter.entries.forEach { option ->
+                    val count = when (option) {
+                        PackFilter.ALL -> items.size
+                        PackFilter.OPEN -> openItems.size
+                        PackFilter.PACKED -> packedItems.size
+                        PackFilter.SKIPPED -> skippedItems.size
+                    }
+                    FilterChip(
+                        selected = filter == option,
+                        onClick = { filter = option },
+                        label = { Text("${option.label} ($count)") }
+                    )
+                }
+            }
+        }
+
         if (items.isEmpty()) {
             EmptyState(
                 icon = Icons.Rounded.Luggage,
@@ -189,92 +220,112 @@ fun PackScreen(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                item(key = "open-header") {
-                    SectionHeader(
-                        title = "Noch offen",
-                        count = openItems.size,
-                        color = statusColors.open
-                    )
+                if (showOpen) {
+                    item(key = "open-header") {
+                        SectionHeader(
+                            title = "Noch offen",
+                            count = openItems.size,
+                            color = statusColors.open
+                        )
+                    }
+
+                    if (openItems.isEmpty()) {
+                        item(key = "all-packed") {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = statusColors.packedContainer
+                                )
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CheckCircle,
+                                        contentDescription = null,
+                                        tint = statusColors.packed
+                                    )
+                                    Text(
+                                        text = "Alles gepackt – gute Reise!",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = statusColors.onPackedContainer
+                                    )
+                                }
+                            }
+                        }
+                    } else {
+                        items(openItems, key = { it.article.id }) { entry ->
+                            PackingItemCard(
+                                entry = entry,
+                                status = PackStatus.OPEN,
+                                clothingTarget = clothingTarget,
+                                onStatusChange = { status -> onStatusChange(entry, status) },
+                                onCountChange = { count -> onCountChange(entry, count) },
+                                modifier = Modifier.animateItemPlacement()
+                            )
+                        }
+                    }
                 }
 
-                if (openItems.isEmpty()) {
-                    item(key = "all-packed") {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = statusColors.packedContainer
+                if (showPacked) {
+                    if (packedItems.isEmpty()) {
+                        if (filter == PackFilter.PACKED) {
+                            item(key = "packed-empty") {
+                                FilterEmptyCard("Noch keine Artikel gepackt.")
+                            }
+                        }
+                    } else {
+                        item(key = "packed-header") {
+                            SectionHeader(
+                                title = "Bereits gepackt",
+                                count = packedItems.size,
+                                color = statusColors.packed,
+                                modifier = Modifier.padding(top = 12.dp)
                             )
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(16.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.CheckCircle,
-                                    contentDescription = null,
-                                    tint = statusColors.packed
-                                )
-                                Text(
-                                    text = "Alles gepackt – gute Reise!",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = statusColors.onPackedContainer
+                        }
+                        items(packedItems, key = { it.article.id }) { entry ->
+                            PackingItemCard(
+                                entry = entry,
+                                status = PackStatus.PACKED,
+                                clothingTarget = clothingTarget,
+                                onStatusChange = { status -> onStatusChange(entry, status) },
+                                onCountChange = { count -> onCountChange(entry, count) },
+                                modifier = Modifier.animateItemPlacement()
+                            )
+                        }
+                    }
+                }
+
+                if (showSkipped) {
+                    if (skippedItems.isEmpty()) {
+                        if (filter == PackFilter.SKIPPED) {
+                            item(key = "skipped-empty") {
+                                FilterEmptyCard(
+                                    "Keine Artikel als „Nicht mitnehmen“ markiert."
                                 )
                             }
                         }
-                    }
-                } else {
-                    items(openItems, key = { it.article.id }) { entry ->
-                        PackingItemCard(
-                            entry = entry,
-                            status = PackStatus.OPEN,
-                            clothingTarget = clothingTarget,
-                            onStatusChange = { status -> onStatusChange(entry, status) },
-                            onCountChange = { count -> onCountChange(entry, count) },
-                            modifier = Modifier.animateItemPlacement()
-                        )
-                    }
-                }
-
-                if (packedItems.isNotEmpty()) {
-                    item(key = "packed-header") {
-                        SectionHeader(
-                            title = "Bereits gepackt",
-                            count = packedItems.size,
-                            color = statusColors.packed,
-                            modifier = Modifier.padding(top = 12.dp)
-                        )
-                    }
-                    items(packedItems, key = { it.article.id }) { entry ->
-                        PackingItemCard(
-                            entry = entry,
-                            status = PackStatus.PACKED,
-                            clothingTarget = clothingTarget,
-                            onStatusChange = { status -> onStatusChange(entry, status) },
-                            onCountChange = { count -> onCountChange(entry, count) },
-                            modifier = Modifier.animateItemPlacement()
-                        )
-                    }
-                }
-
-                if (skippedItems.isNotEmpty()) {
-                    item(key = "skipped-header") {
-                        SectionHeader(
-                            title = "Nicht mitnehmen",
-                            count = skippedItems.size,
-                            color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(top = 12.dp)
-                        )
-                    }
-                    items(skippedItems, key = { it.article.id }) { entry ->
-                        PackingItemCard(
-                            entry = entry,
-                            status = PackStatus.SKIPPED,
-                            clothingTarget = clothingTarget,
-                            onStatusChange = { status -> onStatusChange(entry, status) },
-                            onCountChange = { count -> onCountChange(entry, count) },
-                            modifier = Modifier.animateItemPlacement()
-                        )
+                    } else {
+                        item(key = "skipped-header") {
+                            SectionHeader(
+                                title = "Nicht mitnehmen",
+                                count = skippedItems.size,
+                                color = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.padding(top = 12.dp)
+                            )
+                        }
+                        items(skippedItems, key = { it.article.id }) { entry ->
+                            PackingItemCard(
+                                entry = entry,
+                                status = PackStatus.SKIPPED,
+                                clothingTarget = clothingTarget,
+                                onStatusChange = { status -> onStatusChange(entry, status) },
+                                onCountChange = { count -> onCountChange(entry, count) },
+                                modifier = Modifier.animateItemPlacement()
+                            )
+                        }
                     }
                 }
 
@@ -534,6 +585,18 @@ private fun PackingItemCard(
     }
 }
 
+@Composable
+private fun FilterEmptyCard(text: String) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(16.dp)
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun StatusSelector(
@@ -667,4 +730,11 @@ private fun ClothingCounter(
             )
         }
     }
+}
+
+private enum class PackFilter(val label: String) {
+    ALL("Alle"),
+    OPEN("Offen"),
+    PACKED("Gepackt"),
+    SKIPPED("Nicht mitnehmen")
 }
