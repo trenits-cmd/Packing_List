@@ -18,6 +18,7 @@ import com.example.packinglist.data.PhotoStore
 import com.example.packinglist.data.Season
 import com.example.packinglist.data.Trip
 import com.example.packinglist.data.TripCount
+import com.example.packinglist.data.TripDates
 import com.example.packinglist.data.TripType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -220,15 +221,27 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
         if (delta == 0) return
         viewModelScope.launch {
             database.withTransaction {
+                val trip = dao.getTrip(tripId)
+                val target = trip?.let {
+                    TripDates.daysInclusive(it.startDate, it.endDate) + 1
+                }
                 val existing = dao.getPackingState(tripId, entry.article.id)
+                val newCount = ((existing?.count ?: 0) + delta)
+                    .coerceIn(0, MAX_CLOTHING_COUNT)
+                val reachedTarget = target != null && newCount >= target
+                val wasPacked = existing?.isPacked == true
                 dao.upsertPackingState(
                     PackingState(
                         tripId = tripId,
                         articleId = entry.article.id,
-                        isPacked = existing?.isPacked ?: entry.isPacked,
-                        packedAt = existing?.packedAt ?: entry.packedAt,
-                        count = ((existing?.count ?: 0) + delta)
-                            .coerceIn(0, MAX_CLOTHING_COUNT)
+                        isPacked = reachedTarget,
+                        packedAt = if (reachedTarget) {
+                            if (wasPacked) existing?.packedAt
+                            else System.currentTimeMillis()
+                        } else {
+                            null
+                        },
+                        count = newCount
                     )
                 )
             }

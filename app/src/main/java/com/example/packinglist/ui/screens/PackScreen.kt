@@ -18,11 +18,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -36,23 +38,19 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.packinglist.data.Availability
@@ -389,11 +387,20 @@ private fun PackingItemCard(
     val container = if (packed) statusColors.packedContainer else statusColors.openContainer
     val content = if (packed) statusColors.onPackedContainer else statusColors.onOpenContainer
 
-    var sliderValue by remember(article.id) { mutableFloatStateOf(if (packed) 1f else 0f) }
     var expanded by rememberSaveable(article.id) { mutableStateOf(false) }
-    LaunchedEffect(packed) {
-        sliderValue = if (packed) 1f else 0f
-    }
+    val headerModifier = Modifier
+        .fillMaxWidth()
+        .then(
+            if (article.isClothing) {
+                Modifier.clickable { expanded = !expanded }
+            } else {
+                Modifier.toggleable(
+                    value = packed,
+                    role = Role.Checkbox,
+                    onValueChange = onPackedChange
+                )
+            }
+        )
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -407,17 +414,34 @@ private fun PackingItemCard(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { expanded = !expanded },
+                modifier = headerModifier,
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(10.dp)
-                        .background(accent, CircleShape)
-                )
+                        .size(24.dp)
+                        .background(
+                            if (packed) accent else accent.copy(alpha = 0.12f),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (packed) {
+                        Icon(
+                            imageVector = Icons.Rounded.Check,
+                            contentDescription = null,
+                            tint = container,
+                            modifier = Modifier.size(17.dp)
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(accent, CircleShape)
+                        )
+                    }
+                }
                 ArticlePhoto(
                     photoPath = article.photoPath,
                     photoUrl = article.photoUrl,
@@ -448,19 +472,30 @@ private fun PackingItemCard(
                             )
                         }
                     }
+                    Text(
+                        text = when {
+                            article.isClothing -> "Zähle die Stücke bis zum Ziel"
+                            packed -> "Antippen zum Zurücksetzen"
+                            else -> "Antippen zum Erledigen"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accent.copy(alpha = 0.85f)
+                    )
                 }
                 StatusBadge(
                     text = if (packed) "Gepackt" else "Offen",
                     containerColor = accent.copy(alpha = 0.14f),
                     contentColor = accent
                 )
-                Icon(
-                    imageVector = if (expanded) Icons.Rounded.ExpandLess
-                    else Icons.Rounded.ExpandMore,
-                    contentDescription = if (expanded) "Artikel verkleinern"
-                    else "Artikel vergrößern",
-                    tint = accent
-                )
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Rounded.ExpandLess
+                        else Icons.Rounded.ExpandMore,
+                        contentDescription = if (expanded) "Artikel verkleinern"
+                        else "Artikel vergrößern",
+                        tint = accent
+                    )
+                }
             }
 
             if (article.isClothing) {
@@ -486,43 +521,9 @@ private fun PackingItemCard(
                     modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
                 )
             }
-
-            Slider(
-                value = sliderValue,
-                onValueChange = { sliderValue = it },
-                onValueChangeFinished = {
-                    if (packed) {
-                        if (sliderValue <= UNPACK_THRESHOLD) onPackedChange(false)
-                        sliderValue = 1f
-                    } else {
-                        if (sliderValue >= PACK_THRESHOLD) onPackedChange(true)
-                        sliderValue = 0f
-                    }
-                },
-                colors = SliderDefaults.colors(
-                    thumbColor = accent,
-                    activeTrackColor = accent,
-                    inactiveTrackColor = accent.copy(alpha = 0.22f),
-                    activeTickColor = Color.Transparent,
-                    inactiveTickColor = Color.Transparent
-                )
-            )
-
-            Text(
-                text = if (packed) {
-                    "Nach links schieben, um wieder auszupacken"
-                } else {
-                    "Nach rechts schieben, wenn eingepackt"
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = accent
-            )
         }
     }
 }
-
-private const val PACK_THRESHOLD = 0.8f
-private const val UNPACK_THRESHOLD = 0.2f
 
 /**
  * Stückzahl-Zähler für Kleidung. Ziel ist die Reisedauer in Tagen plus eins.
@@ -544,7 +545,7 @@ private fun ClothingCounter(
     val color by animateColorAsState(targetColor, label = "clothingCountColor")
     val missing = (target - count).coerceAtLeast(0)
     val hint = when {
-        count >= target -> "Kleidung · Ziel erreicht"
+        count >= target -> "Kleidung · Ziel erreicht, erledigt"
         missing == 1 -> "Kleidung · 1 Stück fehlt"
         else -> "Kleidung · $missing Stücke fehlen"
     }

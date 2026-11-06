@@ -24,6 +24,9 @@ interface PackingDao {
     )
     suspend fun findTrip(name: String, tripType: TripType, season: Season): Trip?
 
+    @Query("SELECT * FROM trips WHERE id = :tripId")
+    suspend fun getTrip(tripId: Long): Trip?
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertTrip(trip: Trip): Long
 
