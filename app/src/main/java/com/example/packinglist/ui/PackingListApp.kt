@@ -155,6 +155,7 @@ fun PackingListApp(viewModel: PackingViewModel = viewModel()) {
                                 items = uiState.activeItems,
                                 onLeaveTrip = viewModel::leaveTrip,
                                 onPackedChange = viewModel::setPacked,
+                                onCountChange = viewModel::setCount,
                                 onResetPacked = { viewModel.resetPacked(activeTrip.id) },
                                 onDeleteTrip = { viewModel.deleteTrip(activeTrip) },
                                 onOpenDatabase = {

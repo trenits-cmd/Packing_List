@@ -1,5 +1,6 @@
 package com.example.packinglist.ui.screens
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -21,12 +22,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Luggage
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -35,6 +38,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -48,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.packinglist.data.Availability
@@ -70,6 +75,7 @@ fun PackScreen(
     items: List<PackEntry>,
     onLeaveTrip: () -> Unit,
     onPackedChange: (PackEntry, Boolean) -> Unit,
+    onCountChange: (PackEntry, Int) -> Unit,
     onResetPacked: () -> Unit,
     onDeleteTrip: () -> Unit,
     onOpenDatabase: () -> Unit
@@ -77,6 +83,7 @@ fun PackScreen(
     val statusColors = LocalStatusColors.current
     val packedCount = items.count { it.isPacked }
     val totalCount = items.size
+    val clothingTarget = TripDates.daysInclusive(trip.startDate, trip.endDate) + 1
     val openItems = remember(items) {
         items.filter { !it.isPacked }
             .sortedWith(
@@ -209,7 +216,9 @@ fun PackScreen(
                         PackingItemCard(
                             entry = entry,
                             packed = false,
+                            clothingTarget = clothingTarget,
                             onPackedChange = { packed -> onPackedChange(entry, packed) },
+                            onCountChange = { count -> onCountChange(entry, count) },
                             modifier = Modifier.animateItemPlacement()
                         )
                     }
@@ -228,7 +237,9 @@ fun PackScreen(
                         PackingItemCard(
                             entry = entry,
                             packed = true,
+                            clothingTarget = clothingTarget,
                             onPackedChange = { packed -> onPackedChange(entry, packed) },
+                            onCountChange = { count -> onCountChange(entry, count) },
                             modifier = Modifier.animateItemPlacement()
                         )
                     }
@@ -367,7 +378,9 @@ private fun PackingProgressCard(packed: Int, total: Int) {
 private fun PackingItemCard(
     entry: PackEntry,
     packed: Boolean,
+    clothingTarget: Int,
     onPackedChange: (Boolean) -> Unit,
+    onCountChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val statusColors = LocalStatusColors.current
@@ -450,6 +463,14 @@ private fun PackingItemCard(
                 )
             }
 
+            if (article.isClothing) {
+                ClothingCounter(
+                    count = entry.count,
+                    target = clothingTarget,
+                    onCountChange = onCountChange
+                )
+            }
+
             if (expanded) {
                 ArticlePhotoLarge(
                     photoPath = article.photoPath,
@@ -502,3 +523,89 @@ private fun PackingItemCard(
 
 private const val PACK_THRESHOLD = 0.8f
 private const val UNPACK_THRESHOLD = 0.2f
+
+/**
+ * Stückzahl-Zähler für Kleidung. Ziel ist die Reisedauer in Tagen plus eins.
+ * Die Farbe wandert mit der erreichten Menge von Rot über Gelb nach Grün.
+ */
+@Composable
+private fun ClothingCounter(
+    count: Int,
+    target: Int,
+    onCountChange: (Int) -> Unit
+) {
+    val statusColors = LocalStatusColors.current
+    val fraction = if (target <= 0) 1f else (count.toFloat() / target).coerceIn(0f, 1f)
+    val targetColor = if (fraction <= 0.5f) {
+        lerp(statusColors.open, statusColors.warning, fraction * 2f)
+    } else {
+        lerp(statusColors.warning, statusColors.packed, (fraction - 0.5f) * 2f)
+    }
+    val color by animateColorAsState(targetColor, label = "clothingCountColor")
+    val missing = (target - count).coerceAtLeast(0)
+    val hint = when {
+        count >= target -> "Kleidung · Ziel erreicht"
+        missing == 1 -> "Kleidung · 1 Stück fehlt"
+        else -> "Kleidung · $missing Stücke fehlen"
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        shape = RoundedCornerShape(14.dp),
+        color = color.copy(alpha = 0.12f)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { onCountChange(count - 1) },
+                    enabled = count > 0
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Remove,
+                        contentDescription = "Ein Kleidungsstück weniger",
+                        tint = color
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "$count / $target",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = color
+                    )
+                    Text(
+                        text = hint,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                IconButton(onClick = { onCountChange(count + 1) }) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = "Ein Kleidungsstück mehr",
+                        tint = color
+                    )
+                }
+            }
+
+            LinearProgressIndicator(
+                progress = { fraction },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp),
+                color = color,
+                trackColor = color.copy(alpha = 0.2f)
+            )
+        }
+    }
+}

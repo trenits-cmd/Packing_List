@@ -10,7 +10,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [Trip::class, Article::class, PackingState::class],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -45,6 +45,22 @@ abstract class PackingDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "ALTER TABLE articles ADD COLUMN isClothing INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execSQL(
+                    "UPDATE articles SET isClothing = 1 WHERE name IN (" +
+                        "'Hemd','Hemden','Polo','Klamotten','Badehose','Regenjacke'," +
+                        "'Schuhe','Hausschuhe','Mütze','Kappe','Gant')"
+                )
+                db.execSQL(
+                    "ALTER TABLE packing_states ADD COLUMN count INTEGER NOT NULL DEFAULT 0"
+                )
+            }
+        }
+
         fun get(context: Context): PackingDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -52,7 +68,7 @@ abstract class PackingDatabase : RoomDatabase() {
                     PackingDatabase::class.java,
                     "packing-list.db"
                 )
-                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4)
+                    .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                     // Version 1 enthielt nur die alten Beispielreisen.
                     .fallbackToDestructiveMigration()
                     .build()

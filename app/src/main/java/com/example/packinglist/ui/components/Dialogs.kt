@@ -30,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -253,6 +254,7 @@ fun ArticleFormDialog(
         tripType: TripType,
         availability: Availability,
         importance: Int,
+        isClothing: Boolean,
         photoUri: android.net.Uri?,
         removePhoto: Boolean
     ) -> Unit,
@@ -260,6 +262,7 @@ fun ArticleFormDialog(
     initialTripType: TripType = TripType.PRIVATE,
     initialAvailability: Availability = Availability.ALWAYS,
     initialImportance: Int = 1,
+    initialIsClothing: Boolean = false,
     existingPhotoPath: String? = null,
     existingPhotoUrl: String? = null
 ) {
@@ -269,6 +272,7 @@ fun ArticleFormDialog(
     var tripType by remember { mutableStateOf(initialTripType) }
     var availability by remember { mutableStateOf(initialAvailability) }
     var importance by remember { mutableStateOf(initialImportance) }
+    var isClothing by remember { mutableStateOf(initialIsClothing) }
     var pickedPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var removePhoto by remember { mutableStateOf(false) }
     var cameraUri by remember { mutableStateOf<Uri?>(null) }
@@ -392,6 +396,32 @@ fun ArticleFormDialog(
                     onSelect = { importance = it }
                 )
 
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        Text(
+                            text = "Kleidung",
+                            style = MaterialTheme.typography.labelLarge
+                        )
+                        Text(
+                            text = "Bekommt in der Packliste einen Stückzahl-Zähler " +
+                                "(Ziel: Reisedauer + 1).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isClothing,
+                        onCheckedChange = { isClothing = it }
+                    )
+                }
+
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
                         text = "Foto",
@@ -488,6 +518,7 @@ fun ArticleFormDialog(
                         tripType,
                         availability,
                         importance,
+                        isClothing,
                         pickedPhotoUri,
                         removePhoto
                     )

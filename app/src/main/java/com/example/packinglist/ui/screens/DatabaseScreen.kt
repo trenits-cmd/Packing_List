@@ -78,7 +78,7 @@ fun DatabaseScreen(
     onCreateTrip: (String, TripType, Season, Long, Long) -> Unit,
     onUpdateTrip: (Trip) -> Unit,
     onDeleteTrip: (Trip) -> Unit,
-    onAddArticle: (String, TripType, Availability, Int, Uri?) -> Unit,
+    onAddArticle: (String, TripType, Availability, Int, Boolean, Uri?) -> Unit,
     onUpdateArticle: (Article, Uri?, Boolean) -> Unit,
     onDeleteArticle: (Article) -> Unit,
     onOpenPackList: (Trip) -> Unit
@@ -390,8 +390,8 @@ fun DatabaseScreen(
             title = "Neuer Artikel",
             confirmLabel = "Hinzufügen",
             onDismiss = { showAddArticleDialog = false },
-            onConfirm = { name, type, availability, importance, photoUri, _ ->
-                onAddArticle(name, type, availability, importance, photoUri)
+            onConfirm = { name, type, availability, importance, isClothing, photoUri, _ ->
+                onAddArticle(name, type, availability, importance, isClothing, photoUri)
             },
             initialTripType = filterType ?: TripType.PRIVATE,
             initialAvailability = filterAvailability ?: Availability.ALWAYS
@@ -404,13 +404,14 @@ fun DatabaseScreen(
             title = "Artikel bearbeiten",
             confirmLabel = "Speichern",
             onDismiss = { articleToEdit = null },
-            onConfirm = { name, type, availability, importance, photoUri, removePhoto ->
+            onConfirm = { name, type, availability, importance, isClothing, photoUri, removePhoto ->
                 onUpdateArticle(
                     editingArticle.copy(
                         name = name,
                         tripType = type,
                         availability = availability,
-                        importance = importance
+                        importance = importance,
+                        isClothing = isClothing
                     ),
                     photoUri,
                     removePhoto
@@ -420,6 +421,7 @@ fun DatabaseScreen(
             initialTripType = editingArticle.tripType,
             initialAvailability = editingArticle.availability,
             initialImportance = editingArticle.importance,
+            initialIsClothing = editingArticle.isClothing,
             existingPhotoPath = editingArticle.photoPath,
             existingPhotoUrl = editingArticle.photoUrl
         )
@@ -613,7 +615,8 @@ private fun AdminArticleRow(
                                     } else {
                                         "${article.availability.emoji} " +
                                             article.availability.label
-                                    },
+                                    } +
+                                    if (article.isClothing) " · Kleidung" else "",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 maxLines = 2,

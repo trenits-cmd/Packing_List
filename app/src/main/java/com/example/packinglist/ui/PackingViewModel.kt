@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.example.packinglist.data.Article
 import com.example.packinglist.data.Availability
 import com.example.packinglist.data.GitHubClient
@@ -196,14 +197,41 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
     fun setPacked(entry: PackEntry, packed: Boolean) {
         val tripId = activeTripId.value ?: return
         viewModelScope.launch {
-            dao.upsertPackingState(
-                PackingState(
-                    tripId = tripId,
-                    articleId = entry.article.id,
-                    isPacked = packed,
-                    packedAt = if (packed) System.currentTimeMillis() else null
+            database.withTransaction {
+                val existing = dao.getPackingState(tripId, entry.article.id)
+                dao.upsertPackingState(
+                    PackingState(
+                        tripId = tripId,
+                        articleId = entry.article.id,
+                        isPacked = packed,
+                        packedAt = if (packed) System.currentTimeMillis() else null,
+                        count = existing?.count ?: entry.count
+                    )
                 )
-            )
+            }
+        }
+    }
+
+    /** Zählt die Stücke eines Kleidungsstücks für die aktive Reise. */
+    fun setCount(entry: PackEntry, count: Int) {
+        val tripId = activeTripId.value ?: return
+        val safeCount = count.coerceIn(0, MAX_CLOTHING_COUNT)
+        val delta = safeCount - entry.count
+        if (delta == 0) return
+        viewModelScope.launch {
+            database.withTransaction {
+                val existing = dao.getPackingState(tripId, entry.article.id)
+                dao.upsertPackingState(
+                    PackingState(
+                        tripId = tripId,
+                        articleId = entry.article.id,
+                        isPacked = existing?.isPacked ?: entry.isPacked,
+                        packedAt = existing?.packedAt ?: entry.packedAt,
+                        count = ((existing?.count ?: 0) + delta)
+                            .coerceIn(0, MAX_CLOTHING_COUNT)
+                    )
+                )
+            }
         }
     }
 
@@ -226,6 +254,7 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
         tripType: TripType,
         availability: Availability,
         importance: Int,
+        isClothing: Boolean,
         photoUri: Uri?
     ) {
         val cleanName = name.trim()
@@ -244,6 +273,7 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
                     tripType = tripType,
                     availability = availability,
                     importance = importance.coerceIn(1, 3),
+                    isClothing = isClothing,
                     photoPath = photoPath,
                     sortOrder = dao.nextArticleSortOrder()
                 )
@@ -458,5 +488,9 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
                     "Foto lokal gespeichert, GitHub-Upload fehlgeschlagen: ${it.message}"
                 )
             }
+    }
+
+    private companion object {
+        const val MAX_CLOTHING_COUNT = 99
     }
 }

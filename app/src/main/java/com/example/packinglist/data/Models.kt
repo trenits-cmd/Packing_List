@@ -45,6 +45,9 @@ data class Article(
     val availability: Availability,
     /** 1 = sehr wichtig, 2 = wichtig, 3 = optional */
     val importance: Int = 1,
+    /** Kleidungsstück: bekommt in der Packliste einen Stückzahl-Zähler. */
+    @ColumnInfo(defaultValue = "0")
+    val isClothing: Boolean = false,
     /** Absoluter Pfad zu einem lokal gespeicherten Foto. */
     val photoPath: String? = null,
     /** Öffentliche GitHub-Download-URL des Fotos. */
@@ -60,6 +63,26 @@ val Article.importanceLabel: String
         2 -> "Wichtig"
         else -> "Optional"
     }
+
+/**
+ * Artikelnamen aus dem Startkatalog, die als Kleidung gelten. Neue Artikel
+ * lassen sich im Artikel-Dialog zusätzlich manuell als Kleidung markieren.
+ */
+val CLOTHING_NAMES: Set<String> = setOf(
+    "hemd",
+    "hemden",
+    "polo",
+    "klamotten",
+    "badehose",
+    "regenjacke",
+    "schuhe",
+    "hausschuhe",
+    "mütze",
+    "kappe",
+    "gant"
+)
+
+fun isClothingName(name: String): Boolean = name.trim().lowercase() in CLOTHING_NAMES
 
 /**
  * Packzustand eines Artikels für eine konkrete Reise.
@@ -87,7 +110,10 @@ data class PackingState(
     val tripId: Long,
     val articleId: Long,
     val isPacked: Boolean = false,
-    val packedAt: Long? = null
+    val packedAt: Long? = null,
+    /** Gezählte Stücke – nur für Kleidungsstücke relevant. */
+    @ColumnInfo(defaultValue = "0")
+    val count: Int = 0
 )
 
 /**
@@ -96,7 +122,8 @@ data class PackingState(
 data class PackEntry(
     @Embedded val article: Article,
     val isPacked: Boolean = false,
-    val packedAt: Long? = null
+    val packedAt: Long? = null,
+    val count: Int = 0
 )
 
 data class TripCount(

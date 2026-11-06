@@ -44,6 +44,7 @@ object SeedData {
                     tripType = tripType,
                     availability = availability,
                     importance = importance,
+                    isClothing = isClothingName(name),
                     sortOrder = index
                 )
             }

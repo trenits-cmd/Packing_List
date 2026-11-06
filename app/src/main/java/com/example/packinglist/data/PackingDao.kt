@@ -88,7 +88,8 @@ interface PackingDao {
      */
     @Query(
         """
-        SELECT a.*, COALESCE(s.isPacked, 0) AS isPacked, s.packedAt AS packedAt
+        SELECT a.*, COALESCE(s.isPacked, 0) AS isPacked, s.packedAt AS packedAt,
+            COALESCE(s.count, 0) AS count
         FROM articles a
         LEFT JOIN packing_states s
             ON s.articleId = a.id AND s.tripId = :tripId
@@ -106,7 +107,15 @@ interface PackingDao {
     @Upsert
     suspend fun upsertPackingState(state: PackingState)
 
-    @Query("DELETE FROM packing_states WHERE tripId = :tripId")
+    @Query(
+        "SELECT * FROM packing_states WHERE tripId = :tripId AND articleId = :articleId"
+    )
+    suspend fun getPackingState(tripId: Long, articleId: Long): PackingState?
+
+    /** Setzt nur die Häkchen zurück, die gezählten Stücke bleiben erhalten. */
+    @Query(
+        "UPDATE packing_states SET isPacked = 0, packedAt = NULL WHERE tripId = :tripId"
+    )
     suspend fun resetPacked(tripId: Long)
 
     @Query(
