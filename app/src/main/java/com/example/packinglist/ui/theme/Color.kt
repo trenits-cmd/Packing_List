@@ -19,7 +19,11 @@ val OnOpenRedContainer = Color(0xFF601410)
 val PackedGreen = Color(0xFF2E6B34)
 val PackedGreenContainer = Color(0xFFE3F2E2)
 val OnPackedGreenContainer = Color(0xFF103B13)
-val CounterYellow = Color(0xFFE0A800)
+
+// Moderne Signalfarben für den Stückzahl-Zähler.
+val SignalRed = Color(0xFFE5484D)
+val SignalAmber = Color(0xFFF5A524)
+val SignalGreen = Color(0xFF12B76A)
 
 val OpenRedDark = Color(0xFFFFB4AB)
 val OpenRedContainerDark = Color(0xFF5C1F1B)
@@ -27,4 +31,7 @@ val OnOpenRedContainerDark = Color(0xFFFFDAD6)
 val PackedGreenDark = Color(0xFF9BD79E)
 val PackedGreenContainerDark = Color(0xFF1F3A22)
 val OnPackedGreenContainerDark = Color(0xFFCDEFD0)
-val CounterYellowDark = Color(0xFFFFD54F)
+
+val SignalRedDark = Color(0xFFFF6B6E)
+val SignalAmberDark = Color(0xFFFFC53D)
+val SignalGreenDark = Color(0xFF3DD68C)

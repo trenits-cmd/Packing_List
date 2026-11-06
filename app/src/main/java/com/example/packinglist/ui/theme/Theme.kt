@@ -18,7 +18,9 @@ data class StatusColors(
     val packed: Color,
     val packedContainer: Color,
     val onPackedContainer: Color,
-    val warning: Color
+    val signalRed: Color,
+    val signalAmber: Color,
+    val signalGreen: Color
 )
 
 val LocalStatusColors = staticCompositionLocalOf {
@@ -29,7 +31,9 @@ val LocalStatusColors = staticCompositionLocalOf {
         packed = PackedGreen,
         packedContainer = PackedGreenContainer,
         onPackedContainer = OnPackedGreenContainer,
-        warning = CounterYellow
+        signalRed = SignalRed,
+        signalAmber = SignalAmber,
+        signalGreen = SignalGreen
     )
 }
 
@@ -90,7 +94,9 @@ private val LightStatus = StatusColors(
     packed = PackedGreen,
     packedContainer = PackedGreenContainer,
     onPackedContainer = OnPackedGreenContainer,
-    warning = CounterYellow
+    signalRed = SignalRed,
+    signalAmber = SignalAmber,
+    signalGreen = SignalGreen
 )
 
 private val DarkStatus = StatusColors(
@@ -100,7 +106,9 @@ private val DarkStatus = StatusColors(
     packed = PackedGreenDark,
     packedContainer = PackedGreenContainerDark,
     onPackedContainer = OnPackedGreenContainerDark,
-    warning = CounterYellowDark
+    signalRed = SignalRedDark,
+    signalAmber = SignalAmberDark,
+    signalGreen = SignalGreenDark
 )
 
 @Composable

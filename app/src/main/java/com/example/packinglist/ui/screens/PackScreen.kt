@@ -2,6 +2,8 @@ package com.example.packinglist.ui.screens
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -54,8 +57,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -648,7 +651,7 @@ private fun StatusSelector(
 
 /**
  * Stückzahl-Zähler für Kleidung. Ziel ist die Reisedauer in Tagen plus eins.
- * Die Farbe wandert mit der erreichten Menge von Rot über Gelb nach Grün.
+ * Klare Signalstufen: Rot -> Amber -> Grün.
  */
 @Composable
 private fun ClothingCounter(
@@ -657,30 +660,33 @@ private fun ClothingCounter(
     onCountChange: (Int) -> Unit
 ) {
     val statusColors = LocalStatusColors.current
-    val fraction = if (target <= 0) 1f else (count.toFloat() / target).coerceIn(0f, 1f)
-    val targetColor = if (fraction <= 0.5f) {
-        lerp(statusColors.open, statusColors.warning, fraction * 2f)
-    } else {
-        lerp(statusColors.warning, statusColors.packed, (fraction - 0.5f) * 2f)
+    val rawFraction = if (target <= 0) 1f else
+        (count.toFloat() / target).coerceIn(0f, 1f)
+    val signal = when {
+        count >= target -> statusColors.signalGreen
+        rawFraction >= 0.5f -> statusColors.signalAmber
+        else -> statusColors.signalRed
     }
-    val color by animateColorAsState(targetColor, label = "clothingCountColor")
+    val color by animateColorAsState(signal, label = "clothingSignalColor")
+    val fraction by animateFloatAsState(rawFraction, label = "clothingProgress")
     val missing = (target - count).coerceAtLeast(0)
     val hint = when {
-        count >= target -> "Kleidung · Ziel erreicht, erledigt"
-        missing == 1 -> "Kleidung · 1 Stück fehlt"
-        else -> "Kleidung · $missing Stücke fehlen"
+        count >= target -> "Kleidung · Ziel erreicht"
+        missing == 1 -> "Kleidung · noch 1 Stück"
+        else -> "Kleidung · noch $missing Stücke"
     }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 4.dp),
-        shape = RoundedCornerShape(14.dp),
-        color = color.copy(alpha = 0.12f)
+            .padding(top = 6.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, color.copy(alpha = 0.35f))
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -700,16 +706,34 @@ private fun ClothingCounter(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(
-                        text = "$count / $target",
-                        style = MaterialTheme.typography.titleLarge,
-                        color = color
-                    )
-                    Text(
-                        text = hint,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = "$count",
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = " / $target",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 3.dp)
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(7.dp)
+                                .background(color, CircleShape)
+                        )
+                        Text(
+                            text = hint,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
                 IconButton(onClick = { onCountChange(count + 1) }) {
                     Icon(
@@ -720,14 +744,21 @@ private fun ClothingCounter(
                 }
             }
 
-            LinearProgressIndicator(
-                progress = { fraction },
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(6.dp),
-                color = color,
-                trackColor = color.copy(alpha = 0.2f)
-            )
+                    .height(8.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(fraction)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(color)
+                )
+            }
         }
     }
 }
