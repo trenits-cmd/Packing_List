@@ -32,13 +32,15 @@ import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,14 +51,18 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.packinglist.data.Availability
 import com.example.packinglist.data.PackEntry
+import com.example.packinglist.data.PackStatus
 import com.example.packinglist.data.Trip
 import com.example.packinglist.data.TripDates
 import com.example.packinglist.data.importanceLabel
+import com.example.packinglist.data.status
 import com.example.packinglist.ui.components.ArticlePhoto
 import com.example.packinglist.ui.components.ArticlePhotoLarge
 import com.example.packinglist.ui.components.ConfirmDialog
@@ -71,18 +77,18 @@ fun PackScreen(
     trip: Trip,
     items: List<PackEntry>,
     onLeaveTrip: () -> Unit,
-    onPackedChange: (PackEntry, Boolean) -> Unit,
+    onStatusChange: (PackEntry, PackStatus) -> Unit,
     onCountChange: (PackEntry, Int) -> Unit,
     onResetPacked: () -> Unit,
     onDeleteTrip: () -> Unit,
     onOpenDatabase: () -> Unit
 ) {
     val statusColors = LocalStatusColors.current
-    val packedCount = items.count { it.isPacked }
-    val totalCount = items.size
+    val packedCount = items.count { it.status == PackStatus.PACKED }
+    val totalCount = items.count { it.status != PackStatus.SKIPPED }
     val clothingTarget = TripDates.daysInclusive(trip.startDate, trip.endDate) + 1
     val openItems = remember(items) {
-        items.filter { !it.isPacked }
+        items.filter { it.status == PackStatus.OPEN }
             .sortedWith(
                 compareBy(
                     { it.article.importance },
@@ -92,8 +98,17 @@ fun PackScreen(
             )
     }
     val packedItems = remember(items) {
-        items.filter { it.isPacked }
+        items.filter { it.status == PackStatus.PACKED }
             .sortedByDescending { it.packedAt ?: 0L }
+    }
+    val skippedItems = remember(items) {
+        items.filter { it.status == PackStatus.SKIPPED }
+            .sortedWith(
+                compareBy(
+                    { it.article.sortOrder },
+                    { it.article.name.lowercase() }
+                )
+            )
     }
     var showResetDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -212,9 +227,9 @@ fun PackScreen(
                     items(openItems, key = { it.article.id }) { entry ->
                         PackingItemCard(
                             entry = entry,
-                            packed = false,
+                            status = PackStatus.OPEN,
                             clothingTarget = clothingTarget,
-                            onPackedChange = { packed -> onPackedChange(entry, packed) },
+                            onStatusChange = { status -> onStatusChange(entry, status) },
                             onCountChange = { count -> onCountChange(entry, count) },
                             modifier = Modifier.animateItemPlacement()
                         )
@@ -233,9 +248,30 @@ fun PackScreen(
                     items(packedItems, key = { it.article.id }) { entry ->
                         PackingItemCard(
                             entry = entry,
-                            packed = true,
+                            status = PackStatus.PACKED,
                             clothingTarget = clothingTarget,
-                            onPackedChange = { packed -> onPackedChange(entry, packed) },
+                            onStatusChange = { status -> onStatusChange(entry, status) },
+                            onCountChange = { count -> onCountChange(entry, count) },
+                            modifier = Modifier.animateItemPlacement()
+                        )
+                    }
+                }
+
+                if (skippedItems.isNotEmpty()) {
+                    item(key = "skipped-header") {
+                        SectionHeader(
+                            title = "Nicht mitnehmen",
+                            count = skippedItems.size,
+                            color = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier.padding(top = 12.dp)
+                        )
+                    }
+                    items(skippedItems, key = { it.article.id }) { entry ->
+                        PackingItemCard(
+                            entry = entry,
+                            status = PackStatus.SKIPPED,
+                            clothingTarget = clothingTarget,
+                            onStatusChange = { status -> onStatusChange(entry, status) },
                             onCountChange = { count -> onCountChange(entry, count) },
                             modifier = Modifier.animateItemPlacement()
                         )
@@ -374,17 +410,29 @@ private fun PackingProgressCard(packed: Int, total: Int) {
 @Composable
 private fun PackingItemCard(
     entry: PackEntry,
-    packed: Boolean,
+    status: PackStatus,
     clothingTarget: Int,
-    onPackedChange: (Boolean) -> Unit,
+    onStatusChange: (PackStatus) -> Unit,
     onCountChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val statusColors = LocalStatusColors.current
     val article = entry.article
-    val accent = if (packed) statusColors.packed else statusColors.open
-    val container = if (packed) statusColors.packedContainer else statusColors.openContainer
-    val content = if (packed) statusColors.onPackedContainer else statusColors.onOpenContainer
+    val accent = when (status) {
+        PackStatus.PACKED -> statusColors.packed
+        PackStatus.SKIPPED -> MaterialTheme.colorScheme.outline
+        PackStatus.OPEN -> statusColors.open
+    }
+    val container = when (status) {
+        PackStatus.PACKED -> statusColors.packedContainer
+        PackStatus.SKIPPED -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+        PackStatus.OPEN -> statusColors.openContainer
+    }
+    val content = when (status) {
+        PackStatus.PACKED -> statusColors.onPackedContainer
+        PackStatus.SKIPPED -> MaterialTheme.colorScheme.onSurfaceVariant
+        PackStatus.OPEN -> statusColors.onOpenContainer
+    }
 
     var expanded by rememberSaveable(article.id) { mutableStateOf(false) }
 
@@ -453,37 +501,13 @@ private fun PackingItemCard(
                 }
             }
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 4.dp, top = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Erledigt",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = accent
-                    )
-                    Text(
-                        text = if (packed) "Artikel ist gepackt"
-                        else "Noch nicht gepackt",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(
-                    checked = packed,
-                    onCheckedChange = onPackedChange,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = statusColors.packedContainer,
-                        checkedTrackColor = statusColors.packed,
-                        checkedBorderColor = statusColors.packed
-                    )
-                )
-            }
+            StatusSelector(
+                status = status,
+                accent = accent,
+                onStatusChange = onStatusChange
+            )
 
-            if (article.isClothing) {
+            if (article.isClothing && status != PackStatus.SKIPPED) {
                 ClothingCounter(
                     count = entry.count,
                     target = clothingTarget,
@@ -506,6 +530,55 @@ private fun PackingItemCard(
                     modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)
                 )
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun StatusSelector(
+    status: PackStatus,
+    accent: Color,
+    onStatusChange: (PackStatus) -> Unit
+) {
+    val options = listOf(
+        PackStatus.OPEN to "Offen",
+        PackStatus.PACKED to "Erledigt",
+        PackStatus.SKIPPED to "Nicht mitnehmen"
+    )
+
+    SingleChoiceSegmentedButtonRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 2.dp)
+    ) {
+        options.forEachIndexed { index, (value, label) ->
+            SegmentedButton(
+                selected = status == value,
+                onClick = { onStatusChange(value) },
+                shape = SegmentedButtonDefaults.itemShape(
+                    index = index,
+                    count = options.size
+                ),
+                modifier = Modifier.weight(
+                    if (value == PackStatus.SKIPPED) 1.5f else 1f
+                ),
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = accent.copy(alpha = 0.16f),
+                    activeContentColor = accent,
+                    activeBorderColor = accent,
+                    inactiveContainerColor = Color.Transparent,
+                    inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    inactiveBorderColor = MaterialTheme.colorScheme.outlineVariant
+                ),
+                label = {
+                    Text(
+                        text = label,
+                        style = MaterialTheme.typography.labelSmall,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            )
         }
     }
 }

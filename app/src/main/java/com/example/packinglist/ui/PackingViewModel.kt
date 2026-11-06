@@ -11,6 +11,7 @@ import com.example.packinglist.data.GitHubClient
 import com.example.packinglist.data.GitHubSettings
 import com.example.packinglist.data.GitHubSettingsStore
 import com.example.packinglist.data.PackEntry
+import com.example.packinglist.data.PackStatus
 import com.example.packinglist.data.PackingDatabase
 import com.example.packinglist.data.PackingRepository
 import com.example.packinglist.data.PackingState
@@ -195,18 +196,25 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
 
     // --- Packen -------------------------------------------------------------
 
-    fun setPacked(entry: PackEntry, packed: Boolean) {
+    fun setStatus(entry: PackEntry, status: PackStatus) {
         val tripId = activeTripId.value ?: return
         viewModelScope.launch {
             database.withTransaction {
                 val existing = dao.getPackingState(tripId, entry.article.id)
+                val packed = status == PackStatus.PACKED
                 dao.upsertPackingState(
                     PackingState(
                         tripId = tripId,
                         articleId = entry.article.id,
                         isPacked = packed,
-                        packedAt = if (packed) System.currentTimeMillis() else null,
-                        count = existing?.count ?: entry.count
+                        packedAt = if (packed) {
+                            existing?.takeIf { it.isPacked }?.packedAt
+                                ?: System.currentTimeMillis()
+                        } else {
+                            null
+                        },
+                        count = existing?.count ?: entry.count,
+                        isSkipped = status == PackStatus.SKIPPED
                     )
                 )
             }
@@ -229,11 +237,13 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
                 val targetDays = trip?.let {
                     TripDates.daysInclusive(it.startDate, it.endDate) + 1
                 }
-                val justReachedTarget = targetDays != null &&
+                val wasSkipped = existing?.isSkipped == true
+                val justReachedTarget = !wasSkipped &&
+                    targetDays != null &&
                     newCount >= targetDays &&
                     previousCount < targetDays
                 val wasPacked = existing?.isPacked == true
-                val isPacked = wasPacked || justReachedTarget
+                val isPacked = !wasSkipped && (wasPacked || justReachedTarget)
                 dao.upsertPackingState(
                     PackingState(
                         tripId = tripId,
@@ -244,7 +254,8 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
                         } else {
                             null
                         },
-                        count = newCount
+                        count = newCount,
+                        isSkipped = wasSkipped
                     )
                 )
             }

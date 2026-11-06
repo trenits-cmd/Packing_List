@@ -113,8 +113,18 @@ data class PackingState(
     val packedAt: Long? = null,
     /** Gezählte Stücke – nur für Kleidungsstücke relevant. */
     @ColumnInfo(defaultValue = "0")
-    val count: Int = 0
+    val count: Int = 0,
+    /** Artikel wird bewusst nicht mitgenommen. */
+    @ColumnInfo(defaultValue = "0")
+    val isSkipped: Boolean = false
 )
+
+/** Dreifacher Packstatus eines Artikels. */
+enum class PackStatus {
+    OPEN,
+    PACKED,
+    SKIPPED
+}
 
 /**
  * Ein Artikel zusammen mit seinem Packzustand für die aktuelle Reise.
@@ -123,8 +133,16 @@ data class PackEntry(
     @Embedded val article: Article,
     val isPacked: Boolean = false,
     val packedAt: Long? = null,
-    val count: Int = 0
+    val count: Int = 0,
+    val isSkipped: Boolean = false
 )
+
+val PackEntry.status: PackStatus
+    get() = when {
+        isSkipped -> PackStatus.SKIPPED
+        isPacked -> PackStatus.PACKED
+        else -> PackStatus.OPEN
+    }
 
 data class TripCount(
     val tripId: Long,

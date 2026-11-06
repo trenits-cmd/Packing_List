@@ -92,7 +92,8 @@ interface PackingDao {
     @Query(
         """
         SELECT a.*, COALESCE(s.isPacked, 0) AS isPacked, s.packedAt AS packedAt,
-            COALESCE(s.count, 0) AS count
+            COALESCE(s.count, 0) AS count,
+            COALESCE(s.isSkipped, 0) AS isSkipped
         FROM articles a
         LEFT JOIN packing_states s
             ON s.articleId = a.id AND s.tripId = :tripId
@@ -128,11 +129,16 @@ interface PackingDao {
                 SELECT COUNT(*) FROM articles a
                 WHERE a.tripType = t.tripType
                     AND (a.availability = 'ALWAYS' OR a.availability = t.season)
+                    AND NOT EXISTS (
+                        SELECT 1 FROM packing_states sk
+                        WHERE sk.tripId = t.id AND sk.articleId = a.id
+                            AND sk.isSkipped = 1
+                    )
             ) AS total,
             (
                 SELECT COUNT(*) FROM packing_states s
                 JOIN articles a ON a.id = s.articleId
-                WHERE s.tripId = t.id AND s.isPacked = 1
+                WHERE s.tripId = t.id AND s.isPacked = 1 AND s.isSkipped = 0
                     AND a.tripType = t.tripType
                     AND (a.availability = 'ALWAYS' OR a.availability = t.season)
             ) AS packed
