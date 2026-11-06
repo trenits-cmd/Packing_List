@@ -18,13 +18,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.ExpandLess
@@ -39,6 +37,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -50,7 +50,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.packinglist.data.Availability
@@ -388,19 +387,6 @@ private fun PackingItemCard(
     val content = if (packed) statusColors.onPackedContainer else statusColors.onOpenContainer
 
     var expanded by rememberSaveable(article.id) { mutableStateOf(false) }
-    val headerModifier = Modifier
-        .fillMaxWidth()
-        .then(
-            if (article.isClothing) {
-                Modifier.clickable { expanded = !expanded }
-            } else {
-                Modifier.toggleable(
-                    value = packed,
-                    role = Role.Checkbox,
-                    onValueChange = onPackedChange
-                )
-            }
-        )
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -414,34 +400,17 @@ private fun PackingItemCard(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Row(
-                modifier = headerModifier,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(24.dp)
-                        .background(
-                            if (packed) accent else accent.copy(alpha = 0.12f),
-                            CircleShape
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (packed) {
-                        Icon(
-                            imageVector = Icons.Rounded.Check,
-                            contentDescription = null,
-                            tint = container,
-                            modifier = Modifier.size(17.dp)
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(accent, CircleShape)
-                        )
-                    }
-                }
+                        .size(10.dp)
+                        .background(accent, CircleShape)
+                )
                 ArticlePhoto(
                     photoPath = article.photoPath,
                     photoUrl = article.photoUrl,
@@ -472,21 +441,7 @@ private fun PackingItemCard(
                             )
                         }
                     }
-                    Text(
-                        text = when {
-                            article.isClothing -> "Zähle die Stücke bis zum Ziel"
-                            packed -> "Antippen zum Zurücksetzen"
-                            else -> "Antippen zum Erledigen"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = accent.copy(alpha = 0.85f)
-                    )
                 }
-                StatusBadge(
-                    text = if (packed) "Gepackt" else "Offen",
-                    containerColor = accent.copy(alpha = 0.14f),
-                    contentColor = accent
-                )
                 IconButton(onClick = { expanded = !expanded }) {
                     Icon(
                         imageVector = if (expanded) Icons.Rounded.ExpandLess
@@ -496,6 +451,36 @@ private fun PackingItemCard(
                         tint = accent
                     )
                 }
+            }
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 4.dp, top = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Erledigt",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = accent
+                    )
+                    Text(
+                        text = if (packed) "Artikel ist gepackt"
+                        else "Noch nicht gepackt",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(
+                    checked = packed,
+                    onCheckedChange = onPackedChange,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = statusColors.packedContainer,
+                        checkedTrackColor = statusColors.packed,
+                        checkedBorderColor = statusColors.packed
+                    )
+                )
             }
 
             if (article.isClothing) {

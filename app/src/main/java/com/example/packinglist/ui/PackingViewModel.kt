@@ -222,22 +222,25 @@ class PackingViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             database.withTransaction {
                 val trip = dao.getTrip(tripId)
-                val target = trip?.let {
+                val existing = dao.getPackingState(tripId, entry.article.id)
+                val previousCount = existing?.count ?: 0
+                val newCount = (previousCount + delta)
+                    .coerceIn(0, MAX_CLOTHING_COUNT)
+                val targetDays = trip?.let {
                     TripDates.daysInclusive(it.startDate, it.endDate) + 1
                 }
-                val existing = dao.getPackingState(tripId, entry.article.id)
-                val newCount = ((existing?.count ?: 0) + delta)
-                    .coerceIn(0, MAX_CLOTHING_COUNT)
-                val reachedTarget = target != null && newCount >= target
+                val justReachedTarget = targetDays != null &&
+                    newCount >= targetDays &&
+                    previousCount < targetDays
                 val wasPacked = existing?.isPacked == true
+                val isPacked = wasPacked || justReachedTarget
                 dao.upsertPackingState(
                     PackingState(
                         tripId = tripId,
                         articleId = entry.article.id,
-                        isPacked = reachedTarget,
-                        packedAt = if (reachedTarget) {
-                            if (wasPacked) existing?.packedAt
-                            else System.currentTimeMillis()
+                        isPacked = isPacked,
+                        packedAt = if (isPacked) {
+                            existing?.packedAt ?: System.currentTimeMillis()
                         } else {
                             null
                         },
